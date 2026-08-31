@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useGeoStore } from '@/lib/store/useGeoStore';
@@ -41,11 +41,14 @@ function MapFlyTo() {
 export default function MapCanvas() {
   const { lat, lng, zoom, activeLayers } = useGeoStore();
 
+  // FIX: Freeze initial coordinates to prevent Fast Refresh crashes
+  const [initial] = useState({ lat, lng, zoom });
+
   return (
     <MapContainer 
-      center={[lat, lng]} 
-      zoom={zoom} 
-      zoomControl={false} // We will use custom UI for this later
+      center={[initial.lat, initial.lng]} 
+      zoom={initial.zoom} 
+      zoomControl={false}
       className="w-full h-full bg-[#1a1a1a] z-0"
     >
       <MapController />
@@ -68,13 +71,15 @@ export default function MapCanvas() {
         />
       )}
 
-      {/* NASA GIBS Overlays (Mocking the date for now) */}
+      {/* NASA GIBS Overlays */}
       {activeLayers.includes('ndvi') && (
         <TileLayer
           attribution='NASA MODIS NDVI'
-          url={`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/2024-01-01/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`}
-          maxZoom={9}
-          opacity={0.8}
+          // Calculate a safe date (8 days ago) to ensure NASA has processed the dataset
+          url={`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/${new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`}
+          maxZoom={19}
+          maxNativeZoom={9} /* THIS IS THE FIX: Stretches Z9 tiles to closer zoom levels */
+          opacity={0.65}
         />
       )}
     </MapContainer>
