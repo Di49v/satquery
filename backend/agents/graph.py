@@ -6,60 +6,55 @@ from langchain_core.messages import SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from agents.state import AgentState
-from agents.tools import spatial_tools
+from agents.tools import registry_tools
 
-# Load environment variables (reads your .env file)
 load_dotenv()
 
-# 1. Initialize the Gemini LLM and bind our tools
+# Initialize Gemini as the orchestrator and fusion engine
 llm = ChatGoogleGenerativeAI(model="gemini-3.7-flash", temperature=0)
-llm_with_tools = llm.bind_tools(spatial_tools)
+llm_with_tools = llm.bind_tools(registry_tools)
 
-# 2. Define the Agent Node
-def call_model(state: AgentState):
+def router_node(state: AgentState):
     messages = state["messages"]
     lat = state.get("lat")
     lng = state.get("lng")
     
-    # Inject a system prompt dynamically containing the user's current map coordinates
+    # The prompt instructs Gemini to execute the MoE workflow sequentially
     system_prompt = SystemMessage(
         content=(
-            "You are a highly capable spatial analysis AI for the GovRS platform. "
-            "You assist analysts with remote sensing data, telemetry, and GIS queries. "
-            f"The user's map is currently locked at coordinates: [LAT: {lat}, LON: {lng}]. "
-            "If they ask 'what am I looking at', use the location tool with these coordinates. "
-            "Always be concise, professional, and authoritative."
+            "You are the SatQuery AI Router and Evidence Fusion Agent. "
+            f"The user is querying coordinates: [LAT: {lat}, LON: {lng}].\n\n"
+            "Workflow Instructions:\n"
+            "1. If you do not have STAC metadata, call fetch_stac_metadata first.\n"
+            "2. Once you have the preview_url, route the query to the appropriate specialist tool "
+            "(GeoChat, EarthDial, TEOChat, DeltaVLM, or MM-OVSeg) based on the image modality and task.\n"
+            "3. After the specialist returns evidence, synthesize a final textual answer.\n"
+            "Do not hallucinate evidence. Always preserve model attribution in your final response."
         )
     )
     
-    # Prepend the system prompt to the message history
     response = llm_with_tools.invoke([system_prompt] + messages)
-    
-    # Return the response to be appended to the state's message list
     return {"messages": [response]}
 
-# 3. Define the routing logic (Does it use a tool, or is it done?)
 def should_continue(state: AgentState):
+    """Determines whether to execute a tool or end the graph."""
     last_message = state["messages"][-1]
     
-    # If the LLM decided to call a tool, route to the 'tools' node
     if last_message.tool_calls:
         return "tools"
-    
-    # Otherwise, end the graph
     return END
 
-# 4. Build and Compile the Graph
+# Build the graph
 workflow = StateGraph(AgentState)
 
-# Add the nodes
-workflow.add_node("agent", call_model)
-workflow.add_node("tools", ToolNode(spatial_tools))
+# Add the AI node and the execution node
+workflow.add_node("router", router_node)
+workflow.add_node("tools", ToolNode(registry_tools))
 
-# Define the edges
-workflow.set_entry_point("agent")
-workflow.add_conditional_edges("agent", should_continue, ["tools", END])
-workflow.add_edge("tools", "agent")
+# Define the flow
+workflow.set_entry_point("router")
+workflow.add_conditional_edges("router", should_continue, ["tools", END])
+workflow.add_edge("tools", "router")
 
 # Compile into an executable application
 app = workflow.compile()

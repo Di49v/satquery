@@ -1,12 +1,15 @@
-from typing import Annotated, TypedDict, Sequence, Optional
+from typing import Annotated, Sequence, TypedDict, Any, Dict, Optional
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
-    # The `add_messages` function appends new messages to the existing list rather than overwriting
+    # Appends new messages rather than overwriting the history
     messages: Annotated[Sequence[BaseMessage], add_messages]
     
-    # Spatial parameters synced from the frontend map
-    lat: Optional[float]
-    lng: Optional[float]
-    zoom: Optional[int]
+    # Spatial parameters from the frontend map
+    lat: float
+    lng: float
+    zoom: int
+    
+    # Optional metadata populated by the STAC fetcher tool
+    stac_metadata: Optional[Dict[str, Any]]
