@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Tell Tailwind v4 to load our custom config colors */
+@config "../../tailwind.config.ts";
+
+/* Force zero border radius globally to match the legacy spec */
+* {
+  border-radius: 0 !important;
+}
+
+/* Custom scrollbar for side panels */
+.panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.panel-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: #64748b;
+}
