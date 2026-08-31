@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Satellite, Bookmark, RotateCw, Download, LineChart, FileCode } from 'lucide-react';
 import { useAuditStore } from '@/lib/store/useAuditStore';
 import { useGeoStore } from '@/lib/store/useGeoStore';
+import { useModalStore } from '@/lib/store/useModalStore';
 
 // Dynamically import the minimap to prevent SSR crashes
 const MiniMap = dynamic(() => import('@/components/map/MiniMap'), { ssr: false });
@@ -12,6 +13,7 @@ const MiniMap = dynamic(() => import('@/components/map/MiniMap'), { ssr: false }
 export default function DataInspector() {
   const { lat, lng } = useGeoStore();
   const { logs } = useAuditStore();
+  const { openModal } = useModalStore();
   
   // State for Reverse Geocoding
   const [regionName, setRegionName] = useState("Acquiring Target...");
@@ -114,7 +116,10 @@ export default function DataInspector() {
           <button className="text-left text-xs font-semibold text-gov-accent hover:text-blue-800 transition flex items-center">
             <Download className="w-3 h-3 mr-1.5" /> Download FITS Array (Secure)
           </button>
-          <button className="text-left text-xs font-bold text-purple-700 hover:text-purple-900 transition flex items-center">
+          <button 
+            onClick={() => openModal('analysis')}
+            className="text-left text-xs font-bold text-purple-700 hover:text-purple-900 transition flex items-center"
+          >
             <LineChart className="w-3 h-3 mr-1.5" /> Plot Regional Telemetry (Live)
           </button>
           <button className="text-left text-xs font-semibold text-gov-accent hover:text-blue-800 transition flex items-center">

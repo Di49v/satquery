@@ -2,12 +2,17 @@ import { create } from 'zustand';
 
 interface ModalState {
   activeModal: 'sql' | 'compare' | 'analysis' | null;
-  openModal: (modal: 'sql' | 'compare' | 'analysis') => void;
+  analysisPayload: { source: 'map' | 'sql'; data: any[] } | null;
+  openModal: (modal: 'sql' | 'compare' | 'analysis', payload?: any) => void;
   closeModal: () => void;
 }
 
 export const useModalStore = create<ModalState>((set) => ({
   activeModal: null,
-  openModal: (modal) => set({ activeModal: modal }),
-  closeModal: () => set({ activeModal: null }),
+  analysisPayload: null,
+  openModal: (modal, payload = null) => set({ 
+    activeModal: modal, 
+    ...(modal === 'analysis' && { analysisPayload: payload }) 
+  }),
+  closeModal: () => set({ activeModal: null, analysisPayload: null }),
 }));

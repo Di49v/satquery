@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Database, X, GitBranch, Play, Download, Bolt, AlertCircle } from 'lucide-react';
+import { Database, X, GitBranch, Play, Download, Bolt, AlertCircle, LineChart } from 'lucide-react';
 import { useModalStore } from '@/lib/store/useModalStore';
 import { useAuditStore } from '@/lib/store/useAuditStore';
 
@@ -20,6 +20,7 @@ const MOCK_DB = [
 export default function SqlModal() {
   const { activeModal, closeModal } = useModalStore();
   const { addLog } = useAuditStore();
+  const { openModal } = useModalStore();
   
   const [query, setQuery] = useState("SELECT * FROM telemetry WHERE region = 'Amritsar';");
   const [results, setResults] = useState<any[]>([]);
@@ -205,8 +206,16 @@ export default function SqlModal() {
               </button>
             </div>
 
-            {/* Results Table */}
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">Query Results</label>
+            {/* Results Table Header with Plot Button */}
+            <div className="flex justify-between items-end mb-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Query Results</label>
+              <button 
+                onClick={() => openModal('analysis', { source: 'sql', data: results.length > 0 ? results : MOCK_DB })}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold shadow flex items-center transition border border-purple-800"
+              >
+                <LineChart className="w-3 h-3 mr-1.5" /> PLOT & ANALYZE
+              </button>
+            </div>
             <div className="flex-1 border border-slate-300 bg-white overflow-auto shadow-sm panel-scroll">
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="bg-slate-100 text-slate-700 sticky top-0 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
