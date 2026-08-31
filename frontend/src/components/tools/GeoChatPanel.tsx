@@ -22,23 +22,66 @@ export default function GeoChatPanel() {
     }
   }, [messages, isOpen]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputVal.trim()) return;
 
-    // Dispatch user message
+    const userText = inputVal.trim();
+    
+    // 1. Dispatch user message to the UI immediately
     addMessage({
       sender: 'AGENT_SECURE',
-      text: inputVal.trim(),
+      text: userText,
       lat: tagLocation ? lat : null,
       lng: tagLocation ? lng : null,
       zoom: tagLocation ? zoom : null,
       isUser: true,
     });
-
-    addLog(`GeoChat Broadcast: "${inputVal.trim().substring(0, 20)}..."`);
+    
+    addLog(`GeoChat Transmitting: "${userText.substring(0, 20)}..."`);
     setInputVal('');
-  };
 
+    // 2. Send the payload to FastAPI
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: userText,
+          sender: 'AGENT_SECURE',
+          lat: tagLocation ? lat : null,
+          lng: tagLocation ? lng : null,
+          zoom: tagLocation ? zoom : null,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Comms link failed');
+
+      const data = await response.json();
+
+      // 3. Dispatch the bot's response to the UI
+      addMessage({
+        sender: data.sender,
+        text: data.text,
+        lat: data.lat,
+        lng: data.lng,
+        zoom: data.zoom,
+        isUser: false,
+      });
+      
+      addLog(`GeoChat Received: Response from ${data.sender}`);
+
+    } catch (error) {
+      console.error("Backend connection error:", error);
+      addMessage({
+        sender: 'SYSTEM_ERR',
+        text: 'Unable to reach backend services. Ensure FastAPI is running on port 8000.',
+        isUser: false,
+      });
+    }
+  };
+  
   const handleTargetClick = (targetLat: number, targetLng: number, targetZoom?: number | null) => {
     setCoordinates(targetLat, targetLng);
     if (targetZoom) setZoom(targetZoom);

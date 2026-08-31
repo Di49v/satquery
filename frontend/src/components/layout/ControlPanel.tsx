@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sliders, Search, Crosshair, Layers, Minus, Plus, Loader2, Microscope, Terminal } from 'lucide-react';
+import { LayoutGrid, Sliders, Search, Crosshair, Layers, Minus, Plus, Loader2, Microscope, Terminal } from 'lucide-react';
 import { useGeoStore } from '@/lib/store/useGeoStore';
 import { useModalStore } from '@/lib/store/useModalStore';
 
@@ -285,12 +285,17 @@ export default function ControlPanel() {
           {openSection === 'tools' && (
             <div className="p-2.5 flex flex-col space-y-2">
               <button 
+                onClick={() => openModal('compare')}
+                className="w-full bg-gov-accent hover:bg-blue-700 text-white text-xs font-bold py-2 transition shadow border border-blue-800 flex items-center justify-center"
+              >
+                <LayoutGrid className="w-3 h-3 mr-2" /> Multispectral Compare
+              </button>
+              <button 
                 onClick={() => openModal('sql')}
                 className="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 transition shadow border border-slate-600 flex items-center justify-center"
               >
                 <Terminal className="w-3 h-3 mr-2" /> SQL Database Console
               </button>
-              {/* Future Compare/Analysis buttons will go here */}
             </div>
           )}
         </div>

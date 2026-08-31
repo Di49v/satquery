@@ -1,11 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import ControlPanel from '@/components/layout/ControlPanel';
 import DataInspector from '@/components/layout/DataInspector';
 import MapWrapper from '@/components/map/MapWrapper';
 import GeoChatPanel from '@/components/tools/GeoChatPanel';
 import SqlModal from '@/components/tools/SqlModal'; 
 import AnalysisModal from '@/components/tools/AnalysisModal'; 
+
+const CompareModal = dynamic(() => import('@/components/tools/CompareModal'), { ssr: false });
 
 export default function DashboardPage() {
   return (
@@ -25,6 +28,7 @@ export default function DashboardPage() {
       {/* Modals mount here, hidden by default */}
       <SqlModal />
       <AnalysisModal />
+      <CompareModal/>
     </div>
   );
 }

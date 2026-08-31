@@ -133,7 +133,7 @@ export default function DataInspector() {
           <div className="h-24 bg-slate-900 text-green-400 font-mono text-[9px] p-2 overflow-y-auto border border-slate-700 custom-scrollbar flex flex-col gap-1">
             {logs.map((log) => (
               <div key={log.id}>
-                <span className="text-slate-500 mr-1">[{log.timestamp}]</span>
+                <span suppressHydrationWarning className="text-slate-500 mr-1">[{log.timestamp}]</span>
                 <span>&gt; {log.message}</span>
               </div>
             ))}

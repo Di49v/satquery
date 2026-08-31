@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} flex flex-col h-screen bg-slate-300 text-slate-800 antialiased overflow-hidden`}>
+      <body className={`${inter.className} flex flex-col min-h-screen bg-slate-300 text-slate-800 antialiased`}>
         
         {/* Top Ribbon */}
         <div className="bg-slate-100 border-b border-slate-300 px-4 py-1 flex justify-between items-center text-[11px] text-slate-600">
