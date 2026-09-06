@@ -31,9 +31,19 @@ export default function MiniMap(props: MiniMapProps) {
 
   // FIX: Freeze the initial props. React-Leaflet crashes if these change on the MapContainer.
   const [initial] = useState({ lat, lng, zoom: Math.max(zoom - 4, 2) });
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Prevents Next.js SSR mismatch and strict-mode double mount errors
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) return null;
 
   return (
     <MapContainer 
+      // The unique key forces React to create a fresh DOM node for Leaflet
+      key={`minimap-${initial.lat}-${initial.lng}`} 
       center={[initial.lat, initial.lng]} 
       zoom={initial.zoom} 
       zoomControl={false} 

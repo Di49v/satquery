@@ -1,5 +1,6 @@
 "use client";
 
+import { useGeoStore } from '@/lib/store/useGeoStore';
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useObservationStore } from '@/lib/store/useObservationStore';
@@ -11,7 +12,8 @@ import ChatMessage from '@/components/satquery/ChatMessage';
 const MiniMap = dynamic(() => import('@/components/map/MiniMap'), { ssr: false });
 
 export default function SatQueryWorkspace() {
-  const { targetCoordinates, activeObservations } = useObservationStore();
+  const { activeObservations } = useObservationStore();
+  const { lat, lng } = useGeoStore(); // Read directly from your map's global state
   
   // Reading from the global GeoChat store to keep history synced with the popup
   const { messages, addMessage } = useGeoChatStore(); 
@@ -20,6 +22,15 @@ export default function SatQueryWorkspace() {
   const [visType, setVisType] = useState('Auto');
   const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { sessionId, startNewSession } = useGeoChatStore();
+
+  // Start a DB session when the workspace loads if one doesn't exist
+  useEffect(() => {
+    if (!sessionId) {
+      startNewSession();
+    }
+  }, [sessionId, startNewSession]);
 
   // Auto-scroll the stream down when a new message processes
   useEffect(() => {
@@ -39,8 +50,8 @@ export default function SatQueryWorkspace() {
       sender: 'USER',
       text: userText,
       isUser: true,
-      lat: targetCoordinates?.lat,
-      lng: targetCoordinates?.lng,
+      lat: lat,
+      lng: lng,
       zoom: 12,
     });
     
@@ -54,8 +65,8 @@ export default function SatQueryWorkspace() {
         body: JSON.stringify({
           text: userText,
           sender: 'USER',
-          lat: targetCoordinates?.lat || 31.6340,
-          lng: targetCoordinates?.lng || 74.8723,
+          lat: lat || 31.6340,
+          lng: lng || 74.8723,
           zoom: 12,
           observations: activeObservations,
           preferred_visualization: visType 
@@ -104,18 +115,18 @@ export default function SatQueryWorkspace() {
           
           {/* Mini Map */}
           <div className="h-48 bg-slate-200 rounded overflow-hidden border border-slate-300 relative mb-4 shadow-inner">
-             {targetCoordinates ? (
-               <MiniMap lat={targetCoordinates.lat} lng={targetCoordinates.lng} zoom={12} />
+             {lat && lng ? (
+               <MiniMap lat={lat} lng={lng} zoom={12} />
              ) : (
                <div className="flex items-center justify-center h-full text-slate-400 text-xs font-medium">No AOI Selected</div>
              )}
           </div>
 
           {/* Coordinates */}
-          {targetCoordinates && (
+          {lat && lng && (
             <div className="flex items-center text-xs font-mono text-slate-700 bg-slate-100 p-2.5 rounded border border-slate-200 mb-6">
               <MapPin className="w-4 h-4 mr-2 text-blue-600" />
-              {targetCoordinates.lat.toFixed(4)}° N, {targetCoordinates.lng.toFixed(4)}° E
+              {lat.toFixed(4)}° N, {lng.toFixed(4)}° E
             </div>
           )}
 
