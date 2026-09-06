@@ -71,7 +71,8 @@ export default function RootLayout({
         </div>
 
         {/* Dynamic Page Content */}
-        <div className="flex-1 overflow-hidden">
+        {/* FIX: Added 'flex flex-col' so the SatQuery workspace knows to stretch to the bottom */}
+        <div className="flex-1 overflow-hidden flex flex-col relative">
           {children}
         </div>
 
