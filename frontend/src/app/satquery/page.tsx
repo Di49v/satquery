@@ -5,8 +5,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useObservationStore } from '@/lib/store/useObservationStore';
 import { useGeoChatStore } from '@/lib/store/useGeoChatStore';
-import { MapPin, Upload, Satellite, Send, Loader2, ChevronDown } from 'lucide-react';
+import { MapPin, Upload, Satellite, Send, Loader2, ChevronDown, History } from 'lucide-react';
 import ChatMessage from '@/components/satquery/ChatMessage';
+import HistoryDrawer from '@/components/satquery/HistoryDrawer';
 
 // Dynamically import the minimap to prevent Next.js SSR crashes
 const MiniMap = dynamic(() => import('@/components/map/MiniMap'), { ssr: false });
@@ -25,12 +26,7 @@ export default function SatQueryWorkspace() {
 
   const { sessionId, startNewSession } = useGeoChatStore();
 
-  // Start a DB session when the workspace loads if one doesn't exist
-  useEffect(() => {
-    if (!sessionId) {
-      startNewSession();
-    }
-  }, [sessionId, startNewSession]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Auto-scroll the stream down when a new message processes
   useEffect(() => {
@@ -158,19 +154,29 @@ export default function SatQueryWorkspace() {
             <div className="flex justify-between items-center">
               <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">Query Console</span>
               
-              {/* Multiselect / Output Preferences */}
-              <div className="relative">
-                <select 
-                  value={visType}
-                  onChange={(e) => setVisType(e.target.value)}
-                  className="appearance-none bg-slate-50 border border-slate-200 text-xs text-slate-600 font-medium rounded pl-3 pr-8 py-1.5 outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+              <div className="flex items-center space-x-3">
+                {/* NEW: History Button */}
+                <button 
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="flex items-center text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-white border border-slate-200 px-3 py-1.5 rounded shadow-sm"
                 >
-                  <option value="Auto">Auto Visualization</option>
-                  <option value="BarChart">Force: Bar Chart</option>
-                  <option value="PieChart">Force: Pie Chart</option>
-                  <option value="MaskOverlay">Force: Mask Overlay</option>
-                </select>
-                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-2 pointer-events-none" />
+                  <History className="w-3 h-3 mr-2" /> Session History
+                </button>
+
+                {/* EXISTING: Multiselect / Output Preferences */}
+                <div className="relative">
+                  <select 
+                    value={visType}
+                    onChange={(e) => setVisType(e.target.value)}
+                    className="appearance-none bg-slate-50 border border-slate-200 text-xs text-slate-600 font-medium rounded pl-3 pr-8 py-1.5 outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+                  >
+                    <option value="Auto">Auto Visualization</option>
+                    <option value="BarChart">Force: Bar Chart</option>
+                    <option value="PieChart">Force: Pie Chart</option>
+                    <option value="MaskOverlay">Force: Mask Overlay</option>
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-2 pointer-events-none" />
+                </div>
               </div>
             </div>
 
@@ -226,6 +232,11 @@ export default function SatQueryWorkspace() {
         </div>
 
       </section>
+      {/* Mount the drawer hidden; it will slide in when isHistoryOpen is true */}
+      <HistoryDrawer 
+        isOpen={isHistoryOpen} 
+        onClose={() => setIsHistoryOpen(false)} 
+      />
     </main>
   );
 }
