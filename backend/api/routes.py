@@ -46,9 +46,15 @@ async def process_chat(request: ChatRequest):
 
         # 3. Extract the final AI message from the state history
         final_message = result["messages"][-1].content
+        
+        # Handle Gemini returning a list of dicts instead of a raw string
+        if isinstance(final_message, list):
+            final_text = "".join([item.get("text", "") for item in final_message if "text" in item])
+        else:
+            final_text = str(final_message)
 
         return ChatResponse(
-            text=final_message,
+            text=final_text,
             sender="GOVRS_AGENT",
             lat=request.lat,
             lng=request.lng,

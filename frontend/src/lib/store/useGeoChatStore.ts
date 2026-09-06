@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 
+export interface EvidencePayload {
+  type: 'mask' | 'statistics' | 'chart' | 'mixed';
+  imageUrl?: string;
+  stats?: Record<string, string | number>;
+  highlightChange?: string;
+}
+
 export interface GeoMessage {
   id: string;
   sender: string;
@@ -9,6 +16,8 @@ export interface GeoMessage {
   lng?: number | null;
   zoom?: number | null;
   isUser: boolean;
+  evidence?: EvidencePayload; // Added support for spatial evidence
+  trace?: string[];           // Added support for execution trace
 }
 
 interface GeoChatState {

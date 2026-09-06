@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Globe, Lock } from 'lucide-react'
+import { Globe, Lock, Satellite } from 'lucide-react'
 import Link from 'next/link'
 import GeoChatNavBtn from '@/components/layout/GeoChatNavBtn' // <-- Import the new button
 
@@ -47,7 +47,12 @@ export default function RootLayout({
               <nav className="hidden md:flex space-x-2 text-xs font-medium items-center">
                 <Link href="/" className="hover:bg-slate-700 px-3 py-1.5 transition">Home</Link>
                 <Link href="/dashboard" className="bg-slate-700 px-3 py-1.5 transition border border-slate-600 shadow-inner">Visual Tools</Link>
-                <GeoChatNavBtn />
+                <Link 
+                  href="/satquery" 
+                  className="hover:bg-slate-700 px-3 py-1.5 transition text-blue-400 font-bold border border-blue-600/30 bg-blue-900/20 ml-2 flex items-center cursor-pointer"
+                >
+                  <Satellite className="w-3 h-3 mr-1.5" /> SatQuery Workspace
+                </Link>
               </nav>
             </div>
 

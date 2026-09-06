@@ -1,5 +1,7 @@
 'use client';
 
+import { MessageSquare } from 'lucide-react';
+import { useGeoChatStore } from '@/lib/store/useGeoChatStore';
 import { useState, useEffect, useRef } from 'react';
 import { LayoutGrid, Sliders, Search, Crosshair, Layers, Minus, Plus, Loader2, Microscope, Terminal } from 'lucide-react';
 import { useGeoStore } from '@/lib/store/useGeoStore';
@@ -27,6 +29,7 @@ export default function ControlPanel() {
   const skipSearchRef = useRef(false);
 
   const toggle = (section: string) => setOpenSection(openSection === section ? null : section);
+  const { toggleChat } = useGeoChatStore();
 
   // 1. Sync FROM Map TO Coordinate Inputs & Search Box (Reverse Geocoding)
   useEffect(() => {
@@ -127,6 +130,16 @@ export default function ControlPanel() {
       <div className="p-2.5 border-b border-slate-300 bg-slate-200 flex justify-between items-center">
         <h2 className="font-bold text-gov-blue text-xs uppercase tracking-wider">Control Panel</h2>
         <Sliders className="w-4 h-4 text-slate-500" />
+      </div>
+
+      {/* NEW: Quick Comms Trigger */}
+      <div className="p-2 pb-0 bg-slate-50 z-50 relative">
+        <button 
+          onClick={toggleChat}
+          className="w-full bg-amber-900/10 hover:bg-slate-700 text-amber-600 hover:text-amber-400 text-xs font-bold py-2 px-3 transition-colors border border-amber-600/30 flex justify-center items-center shadow-sm"
+        >
+          <MessageSquare className="w-4 h-4 mr-2" /> Quick Assistant
+        </button>
       </div>
 
       {/* Scrollable Content */}

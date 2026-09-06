@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Radio, Minus, Crosshair, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Radio, Minus, Crosshair, Send, Maximize2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 import { useGeoChatStore } from '@/lib/store/useGeoChatStore';
 import { useGeoStore } from '@/lib/store/useGeoStore';
 import { useAuditStore } from '@/lib/store/useAuditStore';
 
 export default function GeoChatPanel() {
-  const { isOpen, messages, toggleChat, addMessage } = useGeoChatStore();
+  const router = useRouter();
+  const { isOpen, messages, toggleChat, addMessage, closeChat } = useGeoChatStore();
   const { lat, lng, zoom, setCoordinates, setZoom } = useGeoStore();
   const { addLog } = useAuditStore();
 
@@ -22,14 +27,19 @@ export default function GeoChatPanel() {
     }
   }, [messages, isOpen]);
 
+  const handleMaximize = () => {
+    // Route to the full workspace and close the popup
+    router.push('/satquery');
+    closeChat();
+  };
+
   const handleSendMessage = async () => {
     if (!inputVal.trim()) return;
 
     const userText = inputVal.trim();
     
-    // 1. Dispatch user message to the UI immediately
     addMessage({
-      sender: 'AGENT_SECURE',
+      sender: 'USER',
       text: userText,
       lat: tagLocation ? lat : null,
       lng: tagLocation ? lng : null,
@@ -37,10 +47,9 @@ export default function GeoChatPanel() {
       isUser: true,
     });
     
-    addLog(`GeoChat Transmitting: "${userText.substring(0, 20)}..."`);
+    addLog(`SatQuery Transmitting: "${userText.substring(0, 20)}..."`);
     setInputVal('');
 
-    // 2. Send the payload to FastAPI
     try {
       const response = await fetch('http://localhost:8000/api/v1/chat', {
         method: 'POST',
@@ -49,7 +58,7 @@ export default function GeoChatPanel() {
         },
         body: JSON.stringify({
           text: userText,
-          sender: 'AGENT_SECURE',
+          sender: 'USER',
           lat: tagLocation ? lat : null,
           lng: tagLocation ? lng : null,
           zoom: tagLocation ? zoom : null,
@@ -60,9 +69,8 @@ export default function GeoChatPanel() {
 
       const data = await response.json();
 
-      // 3. Dispatch the bot's response to the UI
       addMessage({
-        sender: data.sender,
+        sender: data.sender, // Should be GOVRS_AGENT from your backend
         text: data.text,
         lat: data.lat,
         lng: data.lng,
@@ -70,13 +78,13 @@ export default function GeoChatPanel() {
         isUser: false,
       });
       
-      addLog(`GeoChat Received: Response from ${data.sender}`);
+      addLog(`SatQuery Received: Response from ${data.sender}`);
 
     } catch (error) {
       console.error("Backend connection error:", error);
       addMessage({
         sender: 'SYSTEM_ERR',
-        text: 'Unable to reach backend services. Ensure FastAPI is running on port 8000.',
+        text: 'Unable to reach MoE backend services. Ensure FastAPI is running.',
         isUser: false,
       });
     }
@@ -85,7 +93,7 @@ export default function GeoChatPanel() {
   const handleTargetClick = (targetLat: number, targetLng: number, targetZoom?: number | null) => {
     setCoordinates(targetLat, targetLng);
     if (targetZoom) setZoom(targetZoom);
-    addLog(`GeoChat Teleport -> Target: [${targetLat.toFixed(4)}, ${targetLng.toFixed(4)}]`);
+    addLog(`SatQuery Teleport -> Target: [${targetLat.toFixed(4)}, ${targetLng.toFixed(4)}]`);
   };
 
   if (!isOpen) return null;
@@ -96,15 +104,24 @@ export default function GeoChatPanel() {
       {/* Header */}
       <div className="bg-gov-header text-white px-3 py-2 flex justify-between items-center border-b-2 border-amber-500">
         <span className="font-bold text-xs uppercase tracking-wide flex items-center">
-          <Radio className="w-4 h-4 text-amber-500 mr-2 animate-pulse" /> GeoChat Comms
+          <Radio className="w-4 h-4 text-amber-500 mr-2 animate-pulse" /> SatQuery Assistant
         </span>
-        <button 
-          onClick={toggleChat} 
-          className="text-slate-400 hover:text-white transition-colors"
-          title="Minimize Comms"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={handleMaximize} 
+            className="text-slate-400 hover:text-white transition-colors"
+            title="Maximize to Workspace"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+          <button 
+            onClick={toggleChat} 
+            className="text-slate-400 hover:text-white transition-colors"
+            title="Minimize Comms"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Message Stream */}
@@ -121,7 +138,13 @@ export default function GeoChatPanel() {
             <div className={`border p-2 text-slate-800 shadow-sm max-w-[90%] break-words ${
               msg.isUser ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-300'
             }`}>
-              <p className="leading-relaxed">{msg.text}</p>
+              
+              {/* Markdown Renderer instead of plain <p> */}
+              <div className="prose prose-sm prose-slate max-w-none text-xs leading-relaxed overflow-hidden">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.text}
+                </ReactMarkdown>
+              </div>
               
               {/* If target location is tagged */}
               {msg.lat != null && msg.lng != null && (
@@ -164,7 +187,7 @@ export default function GeoChatPanel() {
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Broadcast message..." 
+            placeholder="Broadcast query..." 
             className="flex-1 border border-slate-300 p-1.5 text-xs focus:outline-none focus:border-gov-accent bg-slate-50 focus:bg-white transition-colors"
           />
           <button 
@@ -175,7 +198,6 @@ export default function GeoChatPanel() {
           </button>
         </div>
       </div>
-
     </div>
   );
 }
