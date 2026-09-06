@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from langchain_core.messages import HumanMessage
 from agents.graph import app as langgraph_app
 
@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     zoom: Optional[int] = None
+    preferred_visualization: Optional[str] = "Auto"
 
 class ChatResponse(BaseModel):
     text: str
@@ -21,6 +22,8 @@ class ChatResponse(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     zoom: Optional[int] = None
+    evidence: Optional[Dict[str, Any]] = None
+    trace: Optional[List[str]] = None
 
 # --- Endpoints ---
 @router.post("/chat", response_model=ChatResponse)
@@ -44,21 +47,17 @@ async def process_chat(request: ChatRequest):
         # This will trigger Gemini to fetch STAC data, call the VLM tools, and fuse the response.
         result = langgraph_app.invoke(inputs)
 
-        # 3. Extract the final AI message from the state history
-        final_message = result["messages"][-1].content
-        
-        # Handle Gemini returning a list of dicts instead of a raw string
-        if isinstance(final_message, list):
-            final_text = "".join([item.get("text", "") for item in final_message if "text" in item])
-        else:
-            final_text = str(final_message)
+        # Extract the clean JSON directly from the new state variable
+        parsed = result.get("final_parsed_response", {})
 
         return ChatResponse(
-            text=final_text,
+            text=parsed.get("text", "Analysis complete."),
             sender="GOVRS_AGENT",
             lat=request.lat,
             lng=request.lng,
-            zoom=request.zoom
+            zoom=request.zoom,
+            evidence=parsed.get("evidence"),
+            trace=parsed.get("trace")
         )
         
     except Exception as e:
