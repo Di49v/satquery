@@ -12,7 +12,7 @@ Built for **Smart India Hackathon 2026 — Problem Statement 26167 | Space Techn
 </p>
 
 <p align="center">
-  <img src="frontend/lander/dashboard3.png" alt="SATQUERY AI PORTAL" width="900">
+  <img src="frontend/lander/assets/dashboard3.png" alt="SATQUERY AI PORTAL" width="900">
 </p>
 
 ## What It Does
