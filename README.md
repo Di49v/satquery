@@ -9,6 +9,12 @@ Built for **Smart India Hackathon 2026 — Problem Statement 26167 | Space Techn
 
 > Ask questions about satellite imagery. SatQuery finds the evidence, runs the right models, and computes the answer.
 
+</p>
+
+<p align="center">
+  <img src="frontend/lander/dashboard3.png" alt="SATQUERY AI PORTAL" width="900">
+</p>
+
 ## What It Does
 
 ```text
