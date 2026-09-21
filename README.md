@@ -1,8 +1,4 @@
-Yeah — for GitHub, keep it sharp. The README should feel like a serious AI/research project, not a thesis.
 
-Copy this:
-
-````markdown
 # SatQuery AI
 
 ### Natural Language → Geospatial Intelligence
