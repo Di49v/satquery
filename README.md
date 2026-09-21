@@ -1,57 +1,128 @@
-# SatQuery AI (GovRS Observation Portal)
+Yeah — for GitHub, keep it sharp. The README should feel like a serious AI/research project, not a thesis.
 
-SatQuery AI is a multi-tier spatial data infrastructure project designed for advanced geographical analysis and environmental monitoring. It bridges live AWS Earth Search STAC telemetry with a Mixture of Experts (MoE) Vision-Language Model (VLM) architecture.
+Copy this:
 
-## System Architecture
+````markdown
+# SatQuery AI
 
-The application operates on a decoupled full-stack architecture:
-- **Frontend (Next.js / React):** A secure, government-styled dashboard featuring an interactive Leaflet map, a dynamic Data Query Interface (DQI), and a spatial communication widget (GeoChat Comms). State is managed via Zustand.
-- **Backend (FastAPI / Python):** A high-concurrency API server executing a LangGraph multi-agent workflow. 
+### Natural Language → Geospatial Intelligence
 
-## The Mixture of Experts (MoE) Pipeline
+SatQuery AI is an agentic Vision-Language Assistant for analyzing multimodal satellite imagery through natural-language queries.
 
-The backend utilizes an agentic routing pattern driven by Google's `gemini-3.7-flash` acting as the cognitive engine. It does not perform spatial analysis directly; instead, it routes tasks to specialized remote-sensing models.
+Built for **Smart India Hackathon 2026 — Problem Statement 26167 | Space Technology**
 
-1. **Input/Geo Checker:** Parses coordinates and fetches the corresponding AWS STAC scene.
-2. **Router Agent (Gemini):** Analyzes the user's natural language query and STAC metadata to determine the required analysis type (e.g., Single Image VQA, Temporal Change, Optical/SAR fusion).
-3. **Specialist Execution:** The system invokes the appropriate domain-specific model:
-   - `GeoChat-7B`: Region grounding, optical VQA, and captioning.
-   - `EarthDial-4B (RGB/MS)`: Multispectral and standard scene understanding.
-   - `TEOChat` & `DeltaVLM`: Bi-temporal change reasoning and description.
-   - `MM-OVSeg`: Paired Optical + SAR multimodal segmentation.
-4. **Evidence Fusion Agent (Gemini):** Synthesizes outputs from the specialists with cloud cover metadata into a final, highly accurate natural language report, preserving model attribution.
+> Ask questions about satellite imagery. SatQuery finds the evidence, runs the right models, and computes the answer.
 
-## Quick Start
+## What It Does
 
-### Prerequisites
-- Node.js 18+
-- Python 3.10+ (managed via `uv`)
-- Hugging Face API Token (for GeoChat inference)
-- Google Gemini API Key (for LangGraph Router/Fusion)
+```text
+Natural Language Query
+        ↓
+Agentic Orchestrator
+        ↓
+Specialized Vision Models
+        ↓
+Segmentation / Change Detection
+        ↓
+Deterministic GIS Engine
+        ↓
+Spatial Evidence + Analytics
+````
 
-### Environment Setup
-Create a `.env` file in the `backend/` directory:
-```env
-GOOGLE_API_KEY="your_gemini_key"
-HUGGINGFACE_API_TOKEN="your_hf_token"
+Example:
 
+> "Has the built-up area increased between 2019 and 2024?"
+
+SatQuery can route the request through vision models, generate spatial masks, perform GIS calculations, and return an evidence-backed result.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[User Query] --> B[FastAPI Gateway]
+    B --> C[Geo Validator]
+    C --> D[LangGraph<br/>Agentic Router]
+
+    D --> E[AI Model Registry]
+
+    E --> F[GeoChat<br/>VQA / Grounding]
+    E --> G[MM-OVSeg<br/>Optical + SAR]
+    E --> H[DeltaVLM<br/>Change Detection]
+    E --> I[Fine-Tuned<br/>Vision Models]
+
+    F --> J[Evidence Fusion]
+    G --> J
+    H --> J
+    I --> J
+
+    J --> K[GIS Engine]
+
+    K --> L[GeoPandas / Shapely]
+    K --> M[Spatial Statistics]
+
+    L --> N[Verified Result]
+    M --> N
+
+    N --> O[Interactive Map]
+    N --> P[Analytics Dashboard]
+    N --> Q[Execution Trace]
 ```
 
-### Running the Stack
+## Core Stack
 
-1. **Start the Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
+**AI:** GeoChat · MM-OVSeg · DeltaVLM/TEOChat · Custom Vision Models
 
-```
+**Agentic:** LangGraph · LangChain
 
+**Geospatial:** GeoPandas · Shapely · Rasterio · GeoTIFF · GeoJSON
 
-2. **Start the Backend:**
-```bash
-cd backend
-uv sync
-uvicorn main:app --reload --port 8000
+**Backend:** Python · FastAPI · Supabase
 
-```
+**Frontend:** React · Next.js
+
+**Infrastructure:** IUCAA Pegasus HPC · SLURM · Vercel
+
+## Vision Model Training
+
+Our vision-model experiments include:
+
+| Model           | Resolution |   Accuracy |
+| --------------- | ---------: | ---------: |
+| ResNet          |      224px |     76.66% |
+| EfficientNet-B0 |      224px |     80.50% |
+| EfficientNet-B2 |      224px |     78.20% |
+| EfficientNet-B4 |      380px | **89.73%** |
+
+Computationally intensive training and experimentation were performed using the **Pegasus HPC Cluster at IUCAA**.
+
+Special thanks to **IUCAA** for providing computational access that supported our vision-model development.
+
+## Research
+
+SatQuery builds upon research in:
+
+* Remote-Sensing Vision-Language Models
+* GeoChat
+* RSVQA
+* BigEarthNet
+* Remote-Sensing Change Detection
+* Multimodal Optical/SAR Analysis
+
+## Team — Antariksh Intelligence
+
+**Parul Prashar · Jashanpreet Singh · Siya · Divleen Kaur · Bhawandeep Singh · Paras**
+
+**Guru Nanak Dev University, Amritsar**
+
+## Links
+
+**Live Demo:** [https://satqueryai-gndu.vercel.app/](https://satqueryai-gndu.vercel.app/)
+
+**Smart India Hackathon 2026:** Problem Statement 26167
+
+---
+
+### SatQuery AI
+
+**From Natural Language to Geospatial Intelligence.**
+

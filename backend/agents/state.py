@@ -13,3 +13,6 @@ class AgentState(TypedDict):
     
     # Optional metadata populated by the STAC fetcher tool
     stac_metadata: Optional[Dict[str, Any]]
+    
+    # NEW: Holds the final structured JSON from the synthesis_node
+    final_parsed_response: Optional[Dict[str, Any]]

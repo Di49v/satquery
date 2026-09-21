@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>National Remote Sensing Portal</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gov: {
+                            blue: '#0f2046',
+                            light: '#f8fafc',
+                            border: '#94a3b8',
+                            panel: '#e2e8f0',
+                            accent: '#2563eb',
+                            header: '#1e293b'
+                        }
+                    },
+                    fontSize: {
+                        'xxs': '0.65rem',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background-color: #cbd5e1;
+        }
+
+        /* Force zero border radius globally */
+        * {
+            border-radius: 0 !important;
+        }
+
+        /* Map container styles */
+        #main-map {
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            background: #000;
+        }
+
+        #quick-look-map {
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            background: #1a1a1a;
+        }
+
+        .compare-map {
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            background: #1a1a1a;
+        }
+
+        /* Custom scrollbar for side panels */
+        .panel-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .panel-scroll::-webkit-scrollbar-thumb {
+            background: #64748b;
+        }
+
+        /* Accordion styling */
+        .accordion-content {
+            transition: max-height 0.2s ease-out;
+            overflow: hidden;
+            max-height: 800px;
+        }
+
+        .accordion-content.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            border-width: 0;
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* Leaflet overrides for cleaner UI (sharp corners) */
+        .leaflet-control-zoom {
+            border: 1px solid #64748b !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out {
+            color: #0f2046 !important;
+            background-color: #f8fafc !important;
+            border-radius: 0 !important;
+        }
+
+        .leaflet-control-attribution {
+            font-size: 9px !important;
+            background: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        /* Crosshair for main map */
+        .map-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            z-index: 400;
+        }
+
+        .map-crosshair::before,
+        .map-crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 0, 0.8);
+        }
+
+        .map-crosshair::before {
+            top: 9px;
+            left: 0;
+            width: 20px;
+            height: 2px;
+        }
+
+        .map-crosshair::after {
+            top: 0;
+            left: 9px;
+            width: 2px;
+            height: 20px;
+        }
+
+        /* GeoChat Panel Animations */
+        #geochat-panel {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        #geochat-panel.closed {
+            transform: translateX(120%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Print Media Setup for PDF Generation */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            #compareModal,
+            #compareModal * {
+                visibility: visible;
+            }
+
+            #compareModal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+                background: white;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .print-hide {
+                display: none !important;
+            }
+
+            .leaflet-control-container {
+                display: none !important;
+            }
+        }
+
+        /* SatQuery Workspace Tabs */
+        .sat-tab {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .sat-tab.active {
+            border-bottom-color: #2563eb;
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        .sat-panel {
+            display: none;
+        }
+
+        .sat-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* AI Chat Pulse */
+        .ai-typing::after {
+            content: '...';
+            animation: typing 1.5s infinite steps(4, end);
+        }
+
+        @keyframes typing {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-screen text-gray-800 text-sm">
+
+    <header
+        class="bg-gov-header text-white flex justify-between items-center px-4 py-2 shadow-lg z-50 shrink-0 border-b-2 border-gov-accent">
+        <div class="flex items-center space-x-6">
+            <div class="font-bold text-lg flex items-center tracking-wide">
+                <i class="fa-solid fa-earth-americas mr-3 text-blue-400"></i>
+                EARTH OBSERVATION PORTAL
+            </div>
+            <nav class="hidden md:flex space-x-2 text-xs font-medium items-center">
+                <button class="hover:bg-slate-700 px-3 py-1.5 transition">Home</button>
+                <button class="bg-slate-700 px-3 py-1.5 transition border border-slate-600 shadow-inner">Visual
+                    Tools</button>
+                <button class="hover:bg-slate-700 px-3 py-1.5 transition">CrossMatch Tools</button>
+                <button class="hover:bg-slate-700 px-3 py-1.5 transition">Data Archives</button>
+                <button onclick="document.getElementById('satQueryModal').classList.add('active')"
+                    class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 transition border border-blue-500 shadow-inner text-white ml-2 flex items-center">
+                    <i class="fa-solid fa-microchip mr-1.5"></i> SatQuery Workspace
+                </button>
+                <button onclick="toggleGeoChat()"
+                    class="hover:bg-slate-700 px-3 py-1.5 transition text-amber-400 font-bold border border-amber-600/30 bg-amber-900/20 ml-2">
+                    <i class="fa-solid fa-satellite-dish fa-pulse mr-1.5"></i> GeoChat (Live)
+                </button>
+            </nav>
+        </div>
+        <div class="flex items-center space-x-4 text-xs font-semibold">
+            <span class="text-slate-300 border-r border-slate-600 pr-4 font-mono text-xxs tracking-widest">[UNCLASSIFIED
+                // FOUO]</span>
+            <span class="text-slate-300 border-r border-slate-600 pr-4" id="user-display">Guest Access</span>
+            <button id="auth-btn"
+                class="hover:text-blue-300 transition flex items-center bg-transparent border border-slate-500 px-3 py-1 hover:bg-slate-700">
+                <i class="fa-solid fa-user-lock mr-2"></i> <span id="auth-btn-text">Sign In</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Left Panel (Controls) -->
+        <aside
+            class="w-72 bg-slate-50 border-r border-slate-300 flex flex-col z-40 shadow-[2px_0_5px_rgba(0,0,0,0.05)] shrink-0">
+            <div class="p-2.5 border-b border-slate-300 bg-slate-200 flex justify-between items-center">
+                <h2 class="font-bold text-gov-blue text-xs uppercase tracking-wider">Control Panel</h2>
+                <i class="fa-solid fa-sliders text-slate-500"></i>
+            </div>
+
+            <div class="flex-1 overflow-y-auto panel-scroll p-2 space-y-2">
+                <!-- Location Search -->
+                <div class="border border-slate-300 bg-white overflow-hidden shadow-sm">
+                    <button
+                        class="w-full bg-gov-blue text-white text-xs font-semibold py-2 px-3 flex justify-between items-center"
+                        onclick="toggleAccordion('acc-loc')">
+                        <span><i class="fa-solid fa-magnifying-glass mr-2"></i> Find by Name</span>
+                        <i class="fa-solid fa-minus text-[10px]" id="icon-acc-loc"></i>
+                    </button>
+                    <div id="acc-loc" class="accordion-content p-2.5">
+                        <div class="flex space-x-1 mb-2">
+                            <input type="text" id="search-input" placeholder="e.g., Amritsar, New Delhi"
+                                class="w-full text-xs p-1.5 border border-slate-300 focus:outline-none focus:border-gov-accent focus:ring-1 focus:ring-gov-accent"
+                                onkeypress="if(event.key === 'Enter') searchLocation()">
+                        </div>
+                        <button onclick="searchLocation()"
+                            class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold py-1.5 transition shadow-sm border border-amber-600">Resolve
+                            Target</button>
+                    </div>
+                </div>
+
+                <!-- Coordinates Block -->
+                <div class="border border-slate-300 bg-white overflow-hidden shadow-sm">
+                    <button
+                        class="w-full bg-gov-blue text-white text-xs font-semibold py-2 px-3 flex justify-between items-center"
+                        onclick="toggleAccordion('acc-coord')">
+                        <span><i class="fa-solid fa-crosshairs mr-2"></i> Spatial Parameters</span>
+                        <i class="fa-solid fa-minus text-[10px]" id="icon-acc-coord"></i>
+                    </button>
+                    <div id="acc-coord" class="accordion-content p-2.5 space-y-2">
+                        <div class="flex items-center justify-between text-xs bg-slate-50 p-1 border border-slate-200">
+                            <label class="w-16 font-medium text-slate-600">LAT (deg)</label>
+                            <input type="text" id="lat-input"
+                                class="w-32 p-1 border border-slate-300 text-right font-mono" readonly>
+                        </div>
+                        <div class="flex items-center justify-between text-xs bg-slate-50 p-1 border border-slate-200">
+                            <label class="w-16 font-medium text-slate-600">LON (deg)</label>
+                            <input type="text" id="lon-input"
+                                class="w-32 p-1 border border-slate-300 text-right font-mono" readonly>
+                        </div>
+                        <div class="flex items-center justify-between text-xs bg-slate-50 p-1 border border-slate-200">
+                            <label class="w-16 font-medium text-slate-600">Scale (z)</label>
+                            <input type="number" id="zoom-input" value="6"
+                                class="w-32 p-1 border border-slate-300 text-right font-mono" min="1" max="18">
+                        </div>
+                        <button onclick="updateMapFromInputs()"
+                            class="w-full mt-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold py-1.5 transition border border-slate-400">Update
+                            View</button>
+                    </div>
+                </div>
+
+                <!-- Live Overlays -->
+                <div class="border border-slate-300 bg-white overflow-hidden shadow-sm">
+                    <button
+                        class="w-full bg-gov-blue text-white text-xs font-semibold py-2 px-3 flex justify-between items-center"
+                        onclick="toggleAccordion('acc-overlay')">
+                        <span><i class="fa-solid fa-layer-group mr-2"></i> Active Overlays</span>
+                        <i class="fa-solid fa-minus text-[10px]" id="icon-acc-overlay"></i>
+                    </button>
+                    <div id="acc-overlay" class="accordion-content p-2.5 space-y-1.5 text-xs text-slate-700">
+                        <label
+                            class="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 border border-transparent hover:border-slate-200">
+                            <input type="checkbox" id="layer-osm" class="form-checkbox h-3.5 w-3.5 text-gov-accent"
+                                onchange="toggleLayer('osm')">
+                            <span class="font-medium">OSM Vector Base</span>
+                        </label>
+                        <label
+                            class="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 border border-transparent hover:border-slate-200">
+                            <input type="checkbox" id="layer-optical" class="form-checkbox h-3.5 w-3.5 text-gov-accent"
+                                checked onchange="toggleLayer('optical')">
+                            <span class="font-medium">High-Res Optical (Esri)</span>
+                        </label>
+                        <hr class="border-slate-200 my-1">
+                        <div class="text-[10px] uppercase font-bold text-slate-500 mb-1">Live Telemetry (NASA GIBS)
+                        </div>
+                        <label
+                            class="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 border border-transparent hover:border-slate-200">
+                            <input type="checkbox" id="layer-night" class="form-checkbox h-3.5 w-3.5 text-gov-accent"
+                                onchange="toggleLayer('night')">
+                            <span class="font-medium">VIIRS Earth at Night</span>
+                        </label>
+                        <label
+                            class="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-1 border border-transparent hover:border-slate-200">
+                            <input type="checkbox" id="layer-ndvi" class="form-checkbox h-3.5 w-3.5 text-gov-accent"
+                                onchange="toggleLayer('ndvi')">
+                            <span class="font-medium">MODIS NDVI (Vegetation)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="border border-slate-300 bg-white overflow-hidden shadow-sm">
+                    <button
+                        class="w-full bg-slate-700 text-white text-xs font-semibold py-2 px-3 flex justify-between items-center"
+                        onclick="toggleAccordion('acc-saved')">
+                        <span><i class="fa-solid fa-bookmark mr-2"></i> Saved Targets (Wishlist)</span>
+                        <i class="fa-solid fa-minus text-[10px]" id="icon-acc-saved"></i>
+                    </button>
+                    <div id="acc-saved" class="accordion-content p-0">
+                        <div id="bookmarks-list" class="divide-y divide-slate-200 max-h-48 overflow-y-auto">
+                            <div class="p-3 text-xs text-slate-500 text-center italic">Sign in to view saved targets.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Tools -->
+                <div class="border border-slate-300 bg-white overflow-hidden shadow-sm mt-2">
+                    <button
+                        class="w-full bg-gov-blue text-white text-xs font-semibold py-2 px-3 flex justify-between items-center"
+                        onclick="toggleAccordion('acc-tools')">
+                        <span><i class="fa-solid fa-microscope mr-2"></i> Analysis Tools</span>
+                        <i class="fa-solid fa-minus text-[10px]" id="icon-acc-tools"></i>
+                    </button>
+                    <div id="acc-tools" class="accordion-content p-2.5 flex flex-col space-y-2">
+                        <button onclick="openCompareModal()"
+                            class="w-full bg-gov-accent hover:bg-blue-700 text-white text-xs font-bold py-2 transition shadow border border-blue-800 flex items-center justify-center">
+                            <i class="fa-solid fa-table-cells-large mr-2"></i> Multispectral Compare
+                        </button>
+                        <button onclick="openSqlModal()"
+                            class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 transition shadow border border-slate-600 flex items-center justify-center">
+                            <i class="fa-solid fa-terminal mr-2"></i> SQL Database Console
+                        </button>
+                        <button onclick="openDynamicAnalysisModal()"
+                            class="w-full bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold py-2 transition shadow border border-purple-900 flex items-center justify-center">
+                            <i class="fa-solid fa-chart-area mr-2"></i> Data Plotting & Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 relative bg-slate-300 overflow-hidden">
+            <!-- The Main Map Container -->
+            <div id="main-map"></div>
+            <!-- Crosshair for precise targeting -->
+            <div class="map-crosshair"></div>
+
+            <!-- Map Overlay UI elements -->
+            <div
+                class="absolute top-3 left-3 z-[400] bg-white/95 border border-slate-400 px-3 py-1.5 shadow-md pointer-events-none font-mono text-xs flex flex-col">
+                <span class="font-bold text-gov-blue border-b border-slate-300 pb-1 mb-1">TARGET COORDS</span>
+                <span>Lat: <span id="display-lat" class="text-slate-700">--</span></span>
+                <span>Lon: <span id="display-lon" class="text-slate-700">--</span></span>
+            </div>
+
+            <!-- GEOCHAT PANEL (Floating) -->
+            <div id="geochat-panel"
+                class="absolute bottom-6 right-6 w-80 bg-white border border-slate-400 shadow-2xl flex flex-col z-[450] h-[450px] max-h-[70vh] closed">
+                <!-- GeoChat Header -->
+                <div
+                    class="bg-gov-header text-white px-3 py-2 flex justify-between items-center border-b-2 border-amber-500">
+                    <span class="font-bold text-xs uppercase tracking-wide flex items-center">
+                        <i class="fa-solid fa-satellite-dish text-amber-500 mr-2"></i> GeoChat Comms
+                    </span>
+                    <button onclick="toggleGeoChat()" class="text-slate-400 hover:text-white transition"><i
+                            class="fa-solid fa-minus"></i></button>
+                </div>
+
+                <!-- Messages List -->
+                <div id="geochat-messages"
+                    class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-100 text-xs border-b border-slate-300">
+                    <div class="text-center text-slate-500 italic text-[10px]">Initializing secure com-link...</div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-2 bg-white flex flex-col space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <label
+                            class="flex items-center space-x-1.5 cursor-pointer text-[10px] font-bold text-slate-600 hover:text-gov-accent transition">
+                            <input type="checkbox" id="geochat-tag-loc" class="form-checkbox h-3 w-3 text-gov-accent">
+                            <span>Tag Current Map Target</span>
+                        </label>
+                        <span class="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-1 border border-emerald-200"
+                            id="geochat-status">ONLINE</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" id="geochat-input"
+                            class="flex-1 border border-slate-300 p-1.5 text-xs focus:outline-none focus:border-gov-accent bg-slate-50 focus:bg-white transition"
+                            placeholder="Broadcast message..."
+                            onkeypress="if(event.key === 'Enter') sendGeoChatMessage()">
+                        <button onclick="sendGeoChatMessage()"
+                            class="bg-amber-600 text-white px-3 py-1.5 text-xs font-bold hover:bg-amber-700 transition border border-amber-800 shadow-sm"><i
+                                class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <aside
+            class="w-72 bg-slate-50 border-l border-slate-300 flex flex-col z-40 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] shrink-0">
+            <div class="bg-gov-header text-white p-2 flex justify-between items-center border-b-2 border-amber-500">
+                <h3 class="font-bold text-xs uppercase tracking-wide"><i
+                        class="fa-solid fa-satellite fa-fade text-amber-500 mr-2"></i> Data Inspector</h3>
+            </div>
+            <div class="p-2.5 flex-1 overflow-y-auto panel-scroll">
+                <div class="mb-3 bg-white p-2 border border-slate-300 shadow-sm">
+                    <span class="text-xxs font-bold text-slate-500 uppercase tracking-wider">Resolved Region</span><br>
+                    <span class="text-sm font-semibold text-gov-blue" id="info-location">Awaiting Target Lock...</span>
+                </div>
+
+                <div class="mb-3 flex justify-between items-center bg-white p-1.5 border border-slate-300 shadow-sm">
+                    <span class="text-xs font-bold text-slate-500 uppercase">Target ID:</span>
+                    <span
+                        class="text-xs font-mono text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 border border-emerald-200"
+                        id="feature-id">PENDING</span>
+                </div>
+
+                <button onclick="saveCurrentTarget()"
+                    class="w-full mb-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 transition shadow border border-emerald-800 flex items-center justify-center">
+                    <i class="fa-solid fa-bookmark mr-2"></i> Save to Wishlist
+                </button>
+
+                <!-- Thumbnail / Quick Look (Real Leaflet Map) -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-end mb-1">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Optical Quick Look</p>
+                        <button onclick="syncQuickLook()"
+                            class="text-blue-600 hover:text-blue-800 text-[10px] font-medium"><i
+                                class="fa-solid fa-rotate mr-1"></i>Sync</button>
+                    </div>
+                    <div
+                        class="w-full h-32 bg-slate-200 border-2 border-slate-400 shadow-inner relative overflow-hidden">
+                        <div id="quick-look-map"></div>
+                        <!-- Overlay targeting box -->
+                        <div class="absolute inset-0 border-[3px] border-amber-500/50 pointer-events-none z-10 m-4">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="flex justify-between items-center mb-1">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase">Computed Metrics (Live)</p>
+                    <span
+                        class="text-[9px] bg-red-100 text-red-800 px-1 font-bold border border-red-300">CONFIDENTIAL</span>
+                </div>
+                <table class="w-full text-xs border-collapse border border-slate-300 mb-4 bg-white shadow-sm">
+                    <tbody>
+                        <tr class="bg-slate-50">
+                            <td class="border border-slate-300 px-2 py-1.5 text-slate-600 font-medium">Terrain Type</td>
+                            <td class="border border-slate-300 px-2 py-1.5 font-bold text-gov-blue" id="info-type">--
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 px-2 py-1.5 text-slate-600 font-medium">Est. Elevation
+                            </td>
+                            <td class="border border-slate-300 px-2 py-1.5 font-mono" id="info-elev">--</td>
+                        </tr>
+                        <tr class="bg-slate-50">
+                            <td class="border border-slate-300 px-2 py-1.5 text-slate-600 font-medium">Grid Resolution
+                            </td>
+                            <td class="border border-slate-300 px-2 py-1.5 font-mono">15m / px</td>
+                        </tr>
+                        <tr>
+                            <td class="border border-slate-300 px-2 py-1.5 text-slate-600 font-medium">Data Timestamp
+                            </td>
+                            <td class="border border-slate-300 px-2 py-1.5 font-mono" id="info-time">--</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Action Links -->
+                <div class="flex flex-col space-y-1.5 border-t border-slate-300 pt-3">
+                    <button class="text-left text-xs font-semibold text-gov-accent hover:text-blue-800 transition"><i
+                            class="fa-solid fa-download mr-1.5"></i> Download FITS Array (Secure)</button>
+                    <button onclick="openAnalysisForMap()"
+                        class="text-left text-xs font-bold text-purple-700 hover:text-purple-900 transition"><i
+                            class="fa-solid fa-chart-line mr-1.5"></i> Plot Regional Telemetry (Live)</button>
+                    <button class="text-left text-xs font-semibold text-gov-accent hover:text-blue-800 transition"><i
+                            class="fa-regular fa-file-code mr-1.5"></i> Export Metadata XML</button>
+                </div>
+
+                <!-- Audit Log -->
+                <div class="mt-4 pt-3 border-t border-slate-300">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Session Audit Log</p>
+                    <div id="audit-log"
+                        class="h-20 bg-slate-900 text-green-400 font-mono text-[9px] p-1.5 overflow-y-auto border border-slate-700">
+                        > SysInit: GovRS Kernel Booted<br>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals below... -->
+
+    <!-- Auth Modal -->
+    <div id="authModal"
+        class="modal-overlay fixed inset-0 bg-slate-900/80 z-[1000] justify-center items-center backdrop-blur-sm">
+        <div class="bg-white shadow-2xl w-96 border-t-4 border-gov-blue">
+            <div class="bg-gov-header text-white px-4 py-3 flex justify-between items-center border-b border-slate-600">
+                <h2 class="font-bold text-sm tracking-wide"><i class="fa-solid fa-shield-halved mr-2"></i>SECURE ACCESS
+                    LOGIN</h2>
+                <button onclick="closeAuthModal()" class="text-slate-300 hover:text-white"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Gov. Email Address</label>
+                    <input type="email" id="auth-email"
+                        class="w-full p-2 border border-slate-400 focus:outline-none focus:border-gov-accent text-sm"
+                        placeholder="agent@gov.rs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Clearance Password</label>
+                    <input type="password" id="auth-pass"
+                        class="w-full p-2 border border-slate-400 focus:outline-none focus:border-gov-accent text-sm"
+                        placeholder="••••••••">
+                </div>
+                <div id="auth-error" class="text-xs text-red-600 font-bold hidden"></div>
+                <div class="flex space-x-2 pt-2">
+                    <button id="btn-login"
+                        class="flex-1 bg-gov-blue hover:bg-blue-900 text-white font-bold py-2 text-sm border border-slate-800 transition">Authenticate</button>
+                    <button id="btn-register"
+                        class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 text-sm border border-slate-400 transition">Request
+                        Access</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Message Modal -->
+    <div id="msgModal" class="modal-overlay fixed inset-0 bg-slate-900/50 z-[1001] justify-center items-center">
+        <div class="bg-white shadow-xl w-80 border border-slate-400">
+            <div class="bg-gov-header text-white px-3 py-2 text-xs font-bold tracking-wide" id="msg-title">SYSTEM
+                MESSAGE</div>
+            <div class="p-4 text-sm text-slate-800" id="msg-body">Message body</div>
+            <div class="px-4 py-3 bg-slate-100 border-t border-slate-300 text-right">
+                <button onclick="document.getElementById('msgModal').classList.remove('active')"
+                    class="bg-gov-blue text-white px-4 py-1 text-xs font-bold hover:bg-blue-800">ACKNOWLEDGE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compare Modal (Multispectral Grid) -->
+    <div id="compareModal" class="modal-overlay fixed inset-0 bg-slate-900/90 z-[999] justify-center items-center p-6">
+        <div
+            class="bg-slate-100 shadow-2xl w-full max-w-7xl flex flex-col h-[92vh] border-2 border-slate-500 overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center px-4 py-3 border-b-2 border-slate-400 bg-white print-hide">
+                <div class="flex items-center">
+                    <div class="bg-gov-blue text-white p-2 mr-3"><i class="fa-solid fa-table-cells-large"></i></div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gov-blue tracking-wide">MULTISPECTRAL SENSOR COMPARISON</h2>
+                        <p class="text-xs font-mono text-slate-500 mt-0.5" id="modal-coord-display">TARGET: --</p>
+                    </div>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="window.print()"
+                        class="bg-slate-200 hover:bg-slate-300 border border-slate-400 text-slate-800 px-4 py-1.5 text-xs font-bold transition shadow-sm"><i
+                            class="fa-solid fa-file-pdf mr-1 text-red-600"></i> Export PDF</button>
+                    <button onclick="closeCompareModal()"
+                        class="bg-red-700 hover:bg-red-800 text-white px-4 py-1.5 text-xs font-bold transition shadow-sm border border-red-900"><i
+                            class="fa-solid fa-xmark mr-1"></i> Close</button>
+                </div>
+            </div>
+
+            <div class="hidden print:block p-4 border-b-2 border-slate-800 bg-white">
+                <h1 class="text-2xl font-bold text-black uppercase">GovRS Earth Observation Report</h1>
+                <p class="text-sm font-mono mt-1" id="print-coord-display">TARGET: --</p>
+                <p class="text-xs font-mono text-slate-600 mt-1">Generated: <span id="print-time"></span> | Class:
+                    UNCLASSIFIED // FOUO</p>
+            </div>
+
+            <!-- Modal Content Grid -->
+            <div class="p-4 flex-1 overflow-y-auto bg-slate-200 print:bg-white print:overflow-visible">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 h-full pb-2 print:gap-6 print:pb-0">
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-slate-100 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-slate-800"><i
+                                    class="fa-solid fa-camera mr-1 text-slate-500"></i> High-Res Optical (Esri)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-slate-300 px-1 text-slate-700 border border-slate-400">RGB</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-1" class="compare-map"></div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-slate-100 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-slate-800"><i
+                                    class="fa-solid fa-mountain mr-1 text-slate-500"></i> Digital Elevation
+                                (OpenTopo)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-slate-300 px-1 text-slate-700 border border-slate-400">DEM/TERRAIN</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-2" class="compare-map"></div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-slate-100 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-slate-800"><i
+                                    class="fa-solid fa-map mr-1 text-slate-500"></i> Vector Base (OSM/Carto)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-slate-300 px-1 text-slate-700 border border-slate-400">INFRASTRUCTURE</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-3" class="compare-map"></div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-emerald-50 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-emerald-900"><i
+                                    class="fa-solid fa-leaf mr-1 text-emerald-700"></i> Vegetation Index (NASA)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-emerald-200 px-1 text-emerald-800 border border-emerald-400">NDVI
+                                COMP</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-4" class="compare-map"></div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-amber-50 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-amber-900"><i
+                                    class="fa-solid fa-temperature-high mr-1 text-amber-700"></i> Surface Temp
+                                (NASA)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-amber-200 px-1 text-amber-800 border border-amber-400">THERMAL
+                                LST</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-5" class="compare-map"></div>
+                        </div>
+                    </div>
+                    <div
+                        class="bg-white border border-slate-400 shadow-sm flex flex-col overflow-hidden print:border-slate-800">
+                        <div
+                            class="px-3 py-1.5 border-b border-slate-300 bg-indigo-50 flex justify-between items-center print:bg-white">
+                            <span class="font-bold text-xs text-indigo-900"><i
+                                    class="fa-solid fa-moon mr-1 text-indigo-700"></i> Socio-Econ (NASA VIIRS)</span>
+                            <span
+                                class="text-[9px] font-mono font-bold bg-indigo-200 px-1 text-indigo-800 border border-indigo-400">DAY/NIGHT
+                                BAND</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[250px] print:min-h-[280px]">
+                            <div id="compare-map-6" class="compare-map"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SQL Modal -->
+    <div id="sqlModal"
+        class="modal-overlay fixed inset-0 bg-slate-900/80 z-[1002] justify-center items-center p-6 backdrop-blur-sm">
+        <div class="bg-slate-200 w-full max-w-6xl h-[85vh] border-2 border-slate-500 flex flex-col shadow-2xl">
+            <!-- Header -->
+            <div class="bg-gov-header text-white px-4 py-3 border-b border-slate-600 flex justify-between items-center">
+                <span class="text-sm font-bold tracking-wider"><i
+                        class="fa-solid fa-database mr-2 text-blue-400"></i>GOV.RS DATA QUERY INTERFACE (DQI) - ADVANCED
+                    MODE</span>
+                <button onclick="closeSqlModal()" class="text-slate-400 hover:text-white transition"><i
+                        class="fa-solid fa-xmark fa-lg"></i></button>
+            </div>
+
+            <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+                <!-- Left Pane: Query Library -->
+                <div
+                    class="w-full md:w-1/3 bg-white border-r border-slate-300 flex flex-col overflow-y-auto panel-scroll p-6 text-sm text-slate-800">
+                    <h2 class="text-lg font-bold text-gov-blue border-b-2 border-gov-accent pb-2 mb-4">Query Library &
+                        Export</h2>
+
+                    <h3
+                        class="font-bold text-gov-blue mb-2 bg-slate-100 p-1.5 border border-slate-200 flex items-center">
+                        <i class="fa-solid fa-code-branch mr-2"></i> Spatial Data Queries
+                    </h3>
+                    <p class="text-[10px] text-slate-600 mb-2">Select a pre-configured query template to filter
+                        telemetry data by region or status.</p>
+                    <div class="space-y-1.5 flex flex-col mb-6">
+                        <button
+                            onclick="document.getElementById('sql-input').value='SELECT * FROM telemetry WHERE region = \'Amritsar\';'; executeSql();"
+                            class="text-left text-xs bg-white border border-slate-300 p-1.5 hover:bg-slate-50 hover:border-gov-accent transition flex items-center group shadow-sm">
+                            <i class="fa-solid fa-play text-slate-400 group-hover:text-gov-accent mr-2 text-[10px]"></i>
+                            <span class="font-mono text-slate-700 font-bold break-all">SELECT * FROM telemetry WHERE
+                                region = 'Amritsar';</span>
+                        </button>
+                        <button
+                            onclick="document.getElementById('sql-input').value='SELECT id, sensor, status, elevation, temp FROM telemetry WHERE status = \'ACTIVE\';'; executeSql();"
+                            class="text-left text-xs bg-white border border-slate-300 p-1.5 hover:bg-slate-50 hover:border-gov-accent transition flex items-center group shadow-sm">
+                            <i class="fa-solid fa-play text-slate-400 group-hover:text-gov-accent mr-2 text-[10px]"></i>
+                            <span class="font-mono text-slate-700 font-bold break-all">SELECT id, sensor, status FROM
+                                telemetry WHERE status = 'ACTIVE';</span>
+                        </button>
+                        <button
+                            onclick="document.getElementById('sql-input').value='SELECT * FROM bookmarks;'; executeSql();"
+                            class="text-left text-xs bg-white border border-slate-300 p-1.5 hover:bg-slate-50 hover:border-amber-500 transition flex items-center group shadow-sm">
+                            <i class="fa-solid fa-lock text-amber-500 mr-2 text-[10px]"></i>
+                            <span class="font-mono text-slate-700 font-bold break-all">SELECT * FROM bookmarks;</span>
+                        </button>
+                    </div>
+
+                    <h3
+                        class="font-bold text-gov-blue mb-2 bg-slate-100 p-1.5 border border-slate-200 flex items-center">
+                        <i class="fa-solid fa-download mr-2"></i> Result Data Export
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportSqlData('csv')"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 border border-emerald-800 transition shadow-sm flex justify-center items-center col-span-2">
+                            <i class="fa-solid fa-file-csv mr-2 text-lg"></i> EXPORT TO CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Pane: Terminal -->
+                <div class="w-full md:w-2/3 flex flex-col p-4 bg-slate-100">
+                    <div class="mb-2 flex justify-between items-end">
+                        <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">SQL Query Input</label>
+                        <span
+                            class="text-[10px] font-mono text-slate-500 font-bold border-b border-slate-300 pb-0.5">Extended
+                            Syntax Supported</span>
+                    </div>
+                    <div class="relative mb-4">
+                        <textarea id="sql-input"
+                            class="w-full h-24 bg-white border border-slate-300 text-slate-800 p-3 font-mono focus:outline-none focus:border-gov-accent focus:ring-1 focus:ring-gov-accent text-sm resize-none shadow-inner"
+                            spellcheck="false">SELECT * FROM telemetry WHERE region = 'Amritsar';</textarea>
+                        <button onclick="executeSql()"
+                            class="absolute bottom-2 right-2 bg-gov-accent hover:bg-blue-700 text-white px-5 py-1.5 text-xs font-bold border border-blue-900 transition shadow flex items-center">
+                            <i class="fa-solid fa-bolt mr-1.5"></i> EXECUTE
+                        </button>
+                    </div>
+
+                    <div class="flex justify-between items-end mb-2">
+                        <label class="text-xs font-bold text-slate-600 uppercase tracking-wide">Query Results</label>
+                        <div class="flex items-center space-x-3">
+                            <span id="export-status"
+                                class="text-[10px] font-mono text-emerald-600 font-bold hidden">Export Complete</span>
+                            <button onclick="openDynamicAnalysisModal()"
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs font-bold shadow flex items-center transition border border-purple-800">
+                                <i class="fa-solid fa-chart-line mr-1.5"></i> PLOT & ANALYZE
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-1 border border-slate-300 bg-white overflow-auto shadow-sm relative">
+                        <div id="print-area-sql">
+                            <table class="w-full text-xs text-left border-collapse" id="sql-results">
+                                <thead
+                                    class="bg-slate-100 text-slate-700 sticky top-0 shadow-[0_1px_2px_rgba(0,0,0,0.1)]"
+                                    id="sql-thead"></thead>
+                                <tbody id="sql-tbody" class="divide-y divide-slate-200">
+                                    <tr>
+                                        <td class="p-6 text-center text-slate-400 italic font-mono text-xs">Awaiting
+                                            query execution...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Modal -->
+    <div id="analysisModal"
+        class="modal-overlay fixed inset-0 bg-slate-900/80 z-[1003] justify-center items-center p-6 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-6xl h-[85vh] border-2 border-slate-500 flex flex-col shadow-2xl">
+            <!-- Header -->
+            <div class="bg-gov-header text-white px-4 py-3 border-b border-slate-600 flex justify-between items-center">
+                <span class="text-sm font-bold tracking-wider"><i
+                        class="fa-solid fa-chart-area mr-2 text-purple-400"></i>DYNAMIC DATA ANALYSIS & PLOTTING</span>
+                <button onclick="closeAnalysisModal()" class="text-slate-400 hover:text-white transition"><i
+                        class="fa-solid fa-xmark fa-lg"></i></button>
+            </div>
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Controls Side -->
+                <div
+                    class="w-72 bg-slate-50 border-r border-slate-300 p-5 flex flex-col space-y-3 text-sm text-slate-800 overflow-y-auto panel-scroll">
+                    <h3 class="font-bold text-gov-blue border-b-2 border-purple-300 pb-1 flex items-center"><i
+                            class="fa-solid fa-sliders mr-2"></i> Plot Configuration</h3>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Chart Format</label>
+                        <select id="ana-type"
+                            class="w-full p-2 border border-slate-300 text-xs focus:border-purple-500 outline-none"
+                            onchange="renderDynamicChart()">
+                            <option value="line">Line Graph (Trends)</option>
+                            <option value="bar">Bar Chart (Categorical)</option>
+                            <option value="scatter">Scatter Plot (Correlation)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">X-Axis</label>
+                            <select id="ana-x"
+                                class="w-full p-2 border border-slate-300 text-xs focus:border-purple-500 outline-none"
+                                onchange="renderDynamicChart()"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Y-Axis</label>
+                            <select id="ana-y"
+                                class="w-full p-2 border border-slate-300 text-xs focus:border-purple-500 outline-none"
+                                onchange="renderDynamicChart()"></select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Compare By (Series
+                            Split)</label>
+                        <select id="ana-group"
+                            class="w-full p-2 border border-slate-300 text-xs focus:border-purple-500 outline-none"
+                            onchange="renderDynamicChart()">
+                            <option value="none">-- No Comparison --</option>
+                        </select>
+                    </div>
+
+                    <h3 class="font-bold text-gov-blue border-b-2 border-amber-300 pb-1 mt-4 flex items-center"><i
+                            class="fa-solid fa-filter mr-2"></i> Data Filters</h3>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Location Filter</label>
+                        <select id="ana-loc"
+                            class="w-full p-2 border border-slate-300 text-xs focus:border-purple-500 outline-none"
+                            onchange="renderDynamicChart()">
+                            <option value="ALL">All Available Regions</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Start Date</label>
+                        <input type="date" id="ana-start"
+                            class="w-full p-2 border border-slate-300 text-xs font-mono focus:border-purple-500 outline-none"
+                            onchange="renderDynamicChart()">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">End Date</label>
+                        <input type="date" id="ana-end"
+                            class="w-full p-2 border border-slate-300 text-xs font-mono focus:border-purple-500 outline-none"
+                            onchange="renderDynamicChart()">
+                    </div>
+
+                    <div id="ana-info-box"
+                        class="bg-blue-50 p-3 border border-blue-200 text-[10px] text-blue-900 rounded-sm mt-2 font-medium">
+                        <i class="fa-solid fa-circle-info mb-1"></i> Data mapped directly from active dataset.
+                    </div>
+
+                    <button onclick="renderDynamicChart()"
+                        class="w-full mt-auto bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold py-2 transition shadow border border-purple-900">
+                        <i class="fa-solid fa-arrows-rotate mr-1"></i> RENDER PLOT
+                    </button>
+                </div>
+
+                <!-- Chart Area -->
+                <div class="flex-1 p-6 flex items-center justify-center bg-white relative">
+                    <div class="w-full h-full relative" id="chart-container">
+                        <!-- Chart canvas container -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SatQuery Workspace Modal -->
+    <div id="satQueryModal"
+        class="modal-overlay fixed inset-0 bg-slate-900/90 z-[1100] justify-center items-center backdrop-blur-sm p-4">
+        <div
+            class="bg-slate-100 w-full max-w-[1600px] h-[95vh] border-2 border-slate-500 flex flex-col shadow-2xl overflow-hidden">
+
+            <!-- Header -->
+            <div class="bg-gov-header text-white px-4 py-3 flex justify-between items-center shrink-0">
+                <div class="flex items-center space-x-4">
+                    <span class="font-bold text-sm tracking-wide"><i
+                            class="fa-solid fa-microchip mr-2 text-blue-400"></i>SATQUERY WORKSPACE</span>
+                    <span class="text-xs bg-slate-700 px-2 py-1 border border-slate-500 rounded-sm">UNCLASSIFIED //
+                        FOUO</span>
+                </div>
+                <button onclick="closeSatQueryModal()"
+                    class="bg-red-700 hover:bg-red-800 text-white px-4 py-1 text-xs font-bold transition border border-red-900 shadow-sm"><i
+                        class="fa-solid fa-xmark mr-1"></i> Close Workspace</button>
+            </div>
+
+            <!-- 3-Column Layout -->
+            <div class="flex-1 flex overflow-hidden">
+
+                <!-- Left: Analysis Context -->
+                <!-- Left: Analysis Context & Custom Controls -->
+                <div
+                    class="w-80 bg-white border-r border-slate-300 flex flex-col overflow-y-auto shrink-0 p-4 space-y-4">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase">Analysis Context & Target</h3>
+
+                    <!-- Map Thumbnail Preview -->
+                    <div class="w-full h-32 bg-slate-200 border border-slate-400 relative">
+                        <img src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/13/3313/5766"
+                            class="w-full h-full object-cover" alt="Map Context">
+                        <div class="absolute inset-4 border-2 border-amber-400 shadow-[0_0_0_2px_rgba(0,0,0,0.5)]">
+                        </div>
+                    </div>
+
+                    <!-- Custom Lat/Lon Inputs -->
+                    <div class="space-y-2 bg-slate-50 p-3 border border-slate-200">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-600 uppercase">Target Coordinates</span>
+                            <button onclick="syncSatCoordsFromMap()"
+                                class="text-[10px] text-blue-600 hover:underline font-semibold"><i
+                                    class="fa-solid fa-location-crosshairs mr-1"></i>Get from Map</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] text-slate-500 block">Latitude</label>
+                                <input type="number" step="0.0001" id="sat-custom-lat"
+                                    class="w-full p-1.5 border border-slate-300 text-xs font-mono" value="31.6340">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-slate-500 block">Longitude</label>
+                                <input type="number" step="0.0001" id="sat-custom-lon"
+                                    class="w-full p-1.5 border border-slate-300 text-xs font-mono" value="74.8723">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom Date Pickers -->
+                    <div class="space-y-2 bg-slate-50 p-3 border border-slate-200">
+                        <span class="text-[10px] font-bold text-slate-600 uppercase block">Analysis Date Range</span>
+                        <div>
+                            <label class="text-[9px] text-slate-500 block">Baseline Date (Start)</label>
+                            <input type="date" id="sat-start-date"
+                                class="w-full p-1.5 border border-slate-300 text-xs font-mono" value="2024-06-01">
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-500 block">Post-Event Date (End)</label>
+                            <input type="date" id="sat-end-date"
+                                class="w-full p-1.5 border border-slate-300 text-xs font-mono" value="2024-08-25">
+                        </div>
+                    </div>
+
+                    <!-- Observation Basket -->
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Active Sensors</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center p-2 border border-emerald-300 bg-emerald-50">
+                                <i class="fa-solid fa-satellite text-emerald-600 mr-2 text-lg"></i>
+                                <div class="flex-1">
+                                    <p class="text-[10px] font-bold text-emerald-800">Sentinel-2 (L2A)</p>
+                                    <p class="text-[9px] font-mono">10m Multispectral</p>
+                                </div>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Middle: Query Console & Results -->
+                <div class="flex-1 flex flex-col bg-slate-100 relative">
+                    <!-- Query Input Area -->
+                    <div class="p-4 bg-white border-b border-slate-300 shadow-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-sm font-bold text-gov-blue uppercase tracking-wide">Query Console</h2>
+                            <div class="space-x-1">
+                                <button class="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 font-bold"><i
+                                        class="fa-solid fa-terminal"></i> Text Query</button>
+                                <button class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 hover:bg-slate-200"><i
+                                        class="fa-solid fa-draw-polygon"></i> Region Grounding</button>
+                                <button class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 hover:bg-slate-200"><i
+                                        class="fa-solid fa-chart-line"></i> Chart / Plot</button>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="satQueryInput"
+                                class="w-full border-2 border-blue-400 p-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
+                                placeholder="e.g. Show me where the water has expanded between June and August 2024..."
+                                value="Show me where the water has expanded between June and August 2024 and calculate the area change.">
+                            <button onclick="runSatQuery()"
+                                class="absolute right-2 top-2 bg-blue-600 text-white p-1.5 px-3 hover:bg-blue-700 transition"><i
+                                    class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- AI Response & Tabs (Initially Hidden) -->
+                    <div id="satResultsArea" class="flex-1 overflow-y-auto hidden p-4">
+                        <!-- AI Insight Block -->
+                        <div class="bg-white border-l-4 border-gov-accent p-4 shadow-sm mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-gov-blue text-sm"><i
+                                        class="fa-solid fa-robot mr-2 text-blue-500"></i>SatQuery AI</h3>
+                                <span
+                                    class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 border border-emerald-300 font-bold"
+                                    id="ai-status-badge"><i class="fa-solid fa-spinner fa-spin mr-1"></i>
+                                    Processing</span>
+                            </div>
+                            <p class="text-sm text-slate-700 leading-relaxed" id="ai-response-text">Awaiting input...
+                            </p>
+                        </div>
+
+                        <!-- Navigation Tabs -->
+                        <div class="flex border-b border-slate-300 mb-4 bg-slate-50 px-2 pt-2">
+                            <div class="sat-tab active px-4 py-2 text-sm text-slate-600 font-medium"
+                                onclick="switchSatTab(this, 'tab-map')">Map View</div>
+                            <div class="sat-tab px-4 py-2 text-sm text-slate-600 font-medium"
+                                onclick="switchSatTab(this, 'tab-charts')">Chart & Metrics</div>
+                            <div class="sat-tab px-4 py-2 text-sm text-slate-600 font-medium"
+                                onclick="switchSatTab(this, 'tab-insights')">Key Insights</div>
+                            <div class="sat-tab px-4 py-2 text-sm text-slate-600 font-medium"
+                                onclick="switchSatTab(this, 'tab-detections')">Detections</div>
+                            <div class="ml-auto"><button
+                                    class="px-3 py-1 mt-1 text-xs bg-white border border-slate-300 hover:bg-slate-100"><i
+                                        class="fa-solid fa-download mr-1"></i> Download</button></div>
+                        </div>
+
+                        <!-- Tab Content: Map View -->
+                        <div id="tab-map" class="sat-panel active">
+                            <!-- We use Leaflet for the third map to overlay GeoJSON cleanly -->
+                            <div class="grid grid-cols-3 gap-2 h-64 mb-4">
+                                <div class="bg-black relative border-2 border-slate-400">
+                                    <div
+                                        class="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 z-10">
+                                        10 Jun 2024<br>(Sentinel-2)</div>
+                                    <img src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/13/3313/5766"
+                                        class="w-full h-full object-cover opacity-80 mix-blend-luminosity">
+                                </div>
+                                <div class="bg-black relative border-2 border-slate-400">
+                                    <div
+                                        class="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 z-10">
+                                        25 Aug 2024<br>(Sentinel-2)</div>
+                                    <img src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/13/3313/5766"
+                                        class="w-full h-full object-cover">
+                                </div>
+                                <div class="bg-slate-900 relative border-2 border-blue-500 overflow-hidden"
+                                    id="sat-change-map">
+                                    <div
+                                        class="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 z-[1000] font-bold">
+                                        Change Map<br>(Live Inundation)</div>
+                                    <div
+                                        class="absolute bottom-2 left-2 bg-white/90 p-1.5 border border-slate-400 text-[9px] z-[1000]">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-blue-600 mr-1"></div> New Water Detection
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Summary Metrics Block -->
+                            <div class="grid grid-cols-4 gap-4 bg-white p-4 border border-slate-300 shadow-sm">
+                                <div class="text-center border-r border-slate-200">
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase"><i
+                                            class="fa-solid fa-droplet text-blue-400"></i> Water Area (Jun)</div>
+                                    <div class="text-xl font-bold text-gov-blue" id="sat-stat-base">--</div>
+                                </div>
+                                <div class="text-center border-r border-slate-200">
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase"><i
+                                            class="fa-solid fa-droplet text-blue-600"></i> Water Area (Aug)</div>
+                                    <div class="text-xl font-bold text-gov-blue" id="sat-stat-post">--</div>
+                                </div>
+                                <div class="text-center border-r border-slate-200">
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase"><i
+                                            class="fa-solid fa-arrow-trend-up text-emerald-500"></i> Net Change</div>
+                                    <div class="text-xl font-bold text-emerald-600" id="sat-stat-change">--</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase"><i
+                                            class="fa-solid fa-chart-bar text-purple-500"></i> AI Confidence</div>
+                                    <div class="text-xl font-bold text-slate-800" id="sat-stat-conf">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Chart & Metrics -->
+                        <div id="tab-charts" class="sat-panel">
+                            <div
+                                class="bg-white p-4 border border-slate-300 h-64 flex items-center justify-center shadow-sm">
+                                <canvas id="satQueryChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Textual Insights -->
+                        <div id="tab-insights" class="sat-panel">
+                            <div class="bg-white p-4 border border-slate-300 shadow-sm space-y-4">
+                                <h4 class="font-bold text-gov-blue border-b pb-1">Automated Spatial Intelligence Report
+                                </h4>
+                                <p class="text-sm text-slate-700">The multispectral analysis utilizing Normalized
+                                    Difference Water Index (NDWI) indicates substantial inundation across the designated
+                                    AOI. The fusion of optical data with SAR validates surface water presence despite
+                                    high cloud cover during acquisition.</p>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Detections -->
+                        <div id="tab-detections" class="sat-panel">
+                            <table class="w-full text-left text-sm bg-white border border-slate-300 shadow-sm">
+                                <thead class="bg-slate-100 border-b border-slate-300">
+                                    <tr>
+                                        <th class="p-2">Detection ID</th>
+                                        <th class="p-2">Type</th>
+                                        <th class="p-2">Coordinates</th>
+                                        <th class="p-2">Area</th>
+                                        <th class="p-2">Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="p-4 text-center text-slate-500 text-xs italic">Awaiting
+                                            AI inference...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Right: Data Inspector & Parameters -->
+                <div class="w-72 bg-white border-l border-slate-300 flex flex-col overflow-y-auto shrink-0">
+                    <div class="bg-slate-800 text-white p-2 text-xs font-bold uppercase tracking-wider"><i
+                            class="fa-solid fa-sliders mr-2"></i> Analysis Parameters</div>
+                    <div class="p-4 space-y-4 text-sm">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Task Type</label>
+                            <select
+                                class="w-full p-1.5 border border-slate-300 text-xs bg-blue-50 text-blue-900 font-semibold">
+                                <option>Change Detection (Auto)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Index /
+                                Method</label>
+                            <select class="w-full p-1.5 border border-slate-300 text-xs">
+                                <option>Water Index (MNDWI)</option>
+                                <option>Vegetation (NDVI)</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-200 pt-2">
+                            <span class="text-xs font-semibold text-slate-700">Cloud Masking</span>
+                            <input type="checkbox" checked class="accent-blue-600 w-4 h-4">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-slate-700">Use SAR (if available)</span>
+                            <input type="checkbox" checked class="accent-blue-600 w-4 h-4">
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800 text-white p-2 text-xs font-bold uppercase tracking-wider mt-2"><i
+                            class="fa-solid fa-toolbox mr-2"></i> Additional Tools</div>
+                    <div class="p-4 space-y-2">
+                        <button
+                            class="w-full text-left text-xs bg-slate-100 hover:bg-slate-200 p-2 border border-slate-300"><i
+                                class="fa-solid fa-download mr-2 text-blue-600"></i> Download FTS Array</button>
+                        <button
+                            class="w-full text-left text-xs bg-slate-100 hover:bg-slate-200 p-2 border border-slate-300"><i
+                                class="fa-solid fa-map mr-2 text-blue-600"></i> Export Map with Results</button>
+                        <button
+                            class="w-full text-left text-xs bg-slate-100 hover:bg-slate-200 p-2 border border-slate-300"><i
+                                class="fa-solid fa-file-pdf mr-2 text-red-600"></i> Generate Report (PDF)</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'govrs-portal-app';
+        let firebaseConfig = {
+            apiKey: "AIzaSyB4eoofAdY4DrW-VKvfGJl5aNv2hoCTn4c",
+            authDomain: "iist-fd6e8.firebaseapp.com",
+            databaseURL: "https://iist-fd6e8-default-rtdb.firebaseio.com",
+            projectId: "iist-fd6e8",
+            storageBucket: "iist-fd6e8.firebasestorage.app",
+            messagingSenderId: "692699808449",
+            appId: "1:692699808449:web:120c8941a940d071f24a40",
+            measurementId: "G-GPFG8LWF2H"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.auth = auth;
+        window.db = db;
+        window.currentUser = null;
+
+        window.sysAlert = function (title, msg) {
+            document.getElementById('msg-title').innerText = title.toUpperCase();
+            document.getElementById('msg-body').innerText = msg;
+            document.getElementById('msgModal').classList.add('active');
+        }
+
+        window.logAudit = function (msg) {
+            const logBox = document.getElementById('audit-log');
+            if (logBox) {
+                const time = new Date().toLocaleTimeString();
+                logBox.innerHTML += `> [${time}] ${msg}<br>`;
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+        }
+
+        const waitForInitialAuth = new Promise((resolve) => {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                unsubscribe(); resolve(user);
+            });
+        });
+
+        async function initAuth() {
+            try {
+                const user = await waitForInitialAuth;
+                if (!user) await signInAnonymously(auth);
+            } catch (e) { console.error("Auth Init Error:", e); }
+        }
+        initAuth();
+
+        const authModal = document.getElementById('authModal');
+
+        document.getElementById('auth-btn').addEventListener('click', () => {
+            if (window.currentUser && !window.currentUser.isAnonymous) {
+                signOut(auth).then(() => {
+                    logAudit("User logged out securely.");
+                    initAuth();
+                });
+            } else { authModal.classList.add('active'); }
+        });
+
+        window.closeAuthModal = function () {
+            authModal.classList.remove('active');
+            document.getElementById('auth-error').classList.add('hidden');
+        }
+
+        document.getElementById('btn-login').addEventListener('click', () => {
+            signInWithEmailAndPassword(auth, document.getElementById('auth-email').value, document.getElementById('auth-pass').value)
+                .then(() => { closeAuthModal(); logAudit(`Auth Success`); })
+                .catch((error) => {
+                    const errBox = document.getElementById('auth-error');
+                    errBox.innerText = error.message; errBox.classList.remove('hidden');
+                });
+        });
+
+        let unsubscribeBookmarks = null;
+        onAuthStateChanged(auth, (user) => {
+            window.currentUser = user;
+            if (user && !user.isAnonymous) {
+                document.getElementById('auth-btn-text').innerText = 'Sign Out';
+                document.getElementById('user-display').innerText = user.email || `Agent_${user.uid.substring(0, 6)}`;
+                loadBookmarksRealtime();
+
+                const content = document.getElementById('acc-saved');
+                content.classList.remove('collapsed');
+                document.getElementById('icon-acc-saved').classList.replace('fa-plus', 'fa-minus');
+            } else {
+                document.getElementById('auth-btn-text').innerText = 'Sign In';
+                document.getElementById('user-display').innerText = 'Guest Access';
+                document.getElementById('bookmarks-list').innerHTML = '<div class="p-3 text-xs text-slate-500 text-center italic">Sign in to view saved targets.</div>';
+                if (unsubscribeBookmarks) unsubscribeBookmarks();
+            }
+            initGeoChatListener();
+        });
+
+        window.saveCurrentTarget = async function () {
+            if (!window.currentUser || window.currentUser.isAnonymous) {
+                sysAlert("Access Denied", "You must sign in to save targets to the secure wishlist."); return;
+            }
+            const center = window.mainMap.getCenter();
+            const targetName = window.currentTargetName || `LAT:${center.lat.toFixed(4)} LON:${center.lng.toFixed(4)}`;
+
+            try {
+                const colRef = collection(db, 'artifacts', appId, 'users', window.currentUser.uid, 'bookmarks');
+                await addDoc(colRef, { name: targetName, lat: center.lat, lon: center.lng, zoom: window.mainMap.getZoom(), timestamp: new Date().toISOString() });
+                logAudit(`Target Saved: ${targetName.substring(0, 15)}...`);
+            } catch (e) { console.error(e); sysAlert("Database Error", "Failed to write target."); }
+        }
+
+        function loadBookmarksRealtime() {
+            if (!window.currentUser || window.currentUser.isAnonymous) return;
+            const q = query(collection(db, 'artifacts', appId, 'users', window.currentUser.uid, 'bookmarks'));
+            unsubscribeBookmarks = onSnapshot(q, (snapshot) => {
+                const listEl = document.getElementById('bookmarks-list');
+                listEl.innerHTML = '';
+                if (snapshot.empty) { listEl.innerHTML = '<div class="p-3 text-xs text-slate-500 text-center italic">No targets saved yet.</div>'; return; }
+
+                const docs = [];
+                snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                docs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                window.currentBookmarks = docs;
+
+                docs.forEach(data => {
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-center p-2 hover:bg-slate-100 transition cursor-pointer border-b border-slate-200 last:border-0";
+                    div.innerHTML = `
+                        <div class="flex-1 overflow-hidden pr-2" onclick="loadTarget(${data.lat}, ${data.lon}, ${data.zoom})">
+                            <p class="text-xs font-bold text-gov-blue truncate">${data.name}</p>
+                            <p class="text-[9px] font-mono text-slate-500">${data.lat.toFixed(3)}, ${data.lon.toFixed(3)}</p>
+                        </div>
+                        <button onclick="deleteTarget('${data.id}')" class="text-slate-400 hover:text-red-600 px-2 py-1"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
+                    listEl.appendChild(div);
+                });
+            });
+        }
+
+        window.loadTarget = function (lat, lon, zoom) {
+            if (window.mainMap) {
+                window.mainMap.setView([lat, lon], zoom || 6);
+                window.resolveLocationData(lat, lon);
+                logAudit(`Loading Target: LAT ${lat.toFixed(2)}, LON ${lon.toFixed(2)}`);
+            }
+        }
+
+        window.deleteTarget = async function (docId) {
+            if (!window.currentUser || window.currentUser.isAnonymous) return;
+            try { await deleteDoc(doc(db, 'artifacts', appId, 'users', window.currentUser.uid, 'bookmarks', docId)); logAudit("Target record purged."); } catch (e) { console.error(e); }
+        }
+
+        // --- GEOCHAT LOGIC ---
+        window.toggleGeoChat = function () {
+            const panel = document.getElementById('geochat-panel');
+            panel.classList.toggle('closed');
+            if (!panel.classList.contains('closed')) {
+                const msgs = document.getElementById('geochat-messages');
+                msgs.scrollTop = msgs.scrollHeight;
+                document.getElementById('geochat-input').focus();
+            }
+        }
+
+        let unsubGeoChat = null;
+        function initGeoChatListener() {
+            if (!window.currentUser) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'geochat'));
+            unsubGeoChat = onSnapshot(q, (snapshot) => {
+                const messages = [];
+                snapshot.forEach(doc => messages.push({ id: doc.id, ...doc.data() }));
+                messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+                const container = document.getElementById('geochat-messages');
+                container.innerHTML = '';
+                if (messages.length === 0) container.innerHTML = '<div class="text-center text-slate-400 italic mt-4 text-xs">No comms on this frequency.</div>';
+
+                messages.forEach(msg => {
+                    const isMe = msg.uid === window.currentUser.uid;
+                    const align = isMe ? 'items-end' : 'items-start';
+                    const bg = isMe ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-300';
+                    const nameColor = isMe ? 'text-amber-800' : 'text-slate-600';
+
+                    let locHtml = '';
+                    if (msg.lat != null && msg.lon != null) {
+                        locHtml = `<div class="mt-1.5"><button onclick="loadTarget(${msg.lat}, ${msg.lon}, ${msg.zoom || 10})" class="text-[9px] font-mono bg-gov-blue text-white px-1.5 py-0.5 border border-slate-800 hover:bg-blue-800 transition shadow-sm"><i class="fa-solid fa-crosshairs mr-1 text-amber-400"></i>[${msg.lat.toFixed(4)}, ${msg.lon.toFixed(4)}]</button></div>`;
+                    }
+
+                    const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    container.innerHTML += `
+                        <div class="flex flex-col ${align} w-full">
+                            <span class="text-[9px] font-bold ${nameColor} mb-0.5 uppercase">${msg.sender} <span class="text-slate-400 font-normal ml-1">${timeStr}</span></span>
+                            <div class="${bg} border p-2 text-slate-800 shadow-sm max-w-[85%] break-words">${msg.text}${locHtml}</div>
+                        </div>
+                    `;
+                });
+                container.scrollTop = container.scrollHeight;
+            }, (err) => {
+                document.getElementById('geochat-status').textContent = 'OFFLINE';
+                document.getElementById('geochat-status').className = 'text-[9px] font-mono text-red-600 bg-red-50 px-1 border border-red-200';
+            });
+        }
+
+        window.sendGeoChatMessage = async function () {
+            const input = document.getElementById('geochat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!window.currentUser) { window.sysAlert("Auth Required", "Secure connection lost."); return; }
+
+            const tagLoc = document.getElementById('geochat-tag-loc').checked;
+            let lat = null, lon = null, zoom = null;
+            if (tagLoc && window.mainMap) {
+                const center = window.mainMap.getCenter();
+                lat = center.lat; lon = center.lng; zoom = window.mainMap.getZoom();
+            }
+
+            let userName = window.currentUser.email ? window.currentUser.email.split('@')[0].toUpperCase() : `OP_${window.currentUser.uid.substring(0, 5)}`;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'geochat'), {
+                    sender: userName, uid: window.currentUser.uid, text: text, lat: lat, lon: lon, zoom: zoom, timestamp: new Date().toISOString()
+                });
+                input.value = ''; document.getElementById('geochat-tag-loc').checked = false;
+            } catch (e) { window.sysAlert("Transmission Failed", "Could not send message."); }
+        }
+    </script>
+
+
+    <script>
+        // Global State
+        let mainMap, quickLookMap, satChangeMap;
+        let compareMaps = [];
+        let mapLayers = {};
+        let currentTargetName = "Unknown Region";
+        let mapsInitialized = false;
+
+        window.liveChangeLayer = null;
+        window.activeSatChart = null;
+
+        const gibsDate = (() => { const d = new Date(); d.setDate(d.getDate() - 5); return d.toISOString().split('T')[0]; })();
+
+        const layersDef = {
+            osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }),
+            optical: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }),
+            ndvi: L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/${gibsDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`, { maxZoom: 9 }),
+            thermal: L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Land_Surface_Temp_Day/default/${gibsDate}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`, { maxZoom: 7 }),
+            night: L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_DayNightBand_ENCC/default/${gibsDate}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`, { maxZoom: 8 })
+        };
+
+        function initApp() {
+            // Main App Map
+            mainMap = L.map('main-map', { zoomControl: false, attributionControl: false }).setView([31.6340, 74.8723], 13);
+            L.control.zoom({ position: 'bottomright' }).addTo(mainMap);
+            mapLayers['optical'] = layersDef.optical.addTo(mainMap);
+            window.mainMap = mainMap;
+
+            // SatQuery Change Overlay Map
+            satChangeMap = L.map('sat-change-map', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, attributionControl: false }).setView([31.6340, 74.8723], 12);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: 0.5 }).addTo(satChangeMap);
+            window.satChangeMap = satChangeMap;
+
+            document.getElementById('info-time').textContent = gibsDate;
+
+            mainMap.on('move', function () {
+                const center = mainMap.getCenter();
+                document.getElementById('display-lat').textContent = center.lat.toFixed(5);
+                document.getElementById('display-lon').textContent = center.lng.toFixed(5);
+                document.getElementById('lat-input').value = center.lat.toFixed(5);
+                document.getElementById('lon-input').value = center.lng.toFixed(5);
+                document.getElementById('zoom-input').value = mainMap.getZoom();
+                satChangeMap.setView(center, mainMap.getZoom() - 1);
+            });
+
+            mainMap.on('click', function (e) {
+                mainMap.panTo(e.latlng);
+                resolveLocationData(e.latlng.lat, e.latlng.lng);
+            });
+
+            quickLookMap = L.map('quick-look-map', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, attributionControl: false }).setView([31.6340, 74.8723], 15);
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(quickLookMap);
+
+            mainMap.fire('move');
+            resolveLocationData(31.6340, 74.8723);
+        }
+
+        window.toggleLayer = function (layerId) {
+            const isChecked = document.getElementById(`layer-${layerId}`).checked;
+
+            if (layerId === 'osm' && isChecked) {
+                document.getElementById('layer-optical').checked = false;
+                if (mapLayers['optical']) { mainMap.removeLayer(mapLayers['optical']); delete mapLayers['optical']; }
+            } else if (layerId === 'optical' && isChecked) {
+                document.getElementById('layer-osm').checked = false;
+                if (mapLayers['osm']) { mainMap.removeLayer(mapLayers['osm']); delete mapLayers['osm']; }
+            }
+
+            if (isChecked) {
+                mapLayers[layerId] = layersDef[layerId].addTo(mainMap);
+                if (layerId === 'night' || layerId === 'ndvi' || layerId === 'thermal') mapLayers[layerId].bringToFront();
+            } else {
+                if (mapLayers[layerId]) { mainMap.removeLayer(mapLayers[layerId]); delete mapLayers[layerId]; }
+            }
+        }
+
+        window.resolveLocationData = async function (lat, lon) {
+            document.getElementById('info-location').innerHTML = 'Querying Live Sensors...';
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                const data = await res.json();
+                window.currentTargetName = data && data.display_name ? data.display_name.split(',').slice(0, 3).join(', ') : "Uncharted/Oceanic Zone";
+                document.getElementById('info-location').textContent = window.currentTargetName;
+                document.getElementById('feature-id').textContent = 'TRK-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+                const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,shortwave_radiation_sum&past_days=30&forecast_days=0&timezone=auto`;
+                const meteoRes = await fetch(meteoUrl);
+                const meteoData = await meteoRes.json();
+
+                if (meteoData && meteoData.daily) {
+                    document.getElementById('info-elev').textContent = meteoData.elevation + 'm (MSL)';
+                    window.mapRealData = meteoData.daily.time.map((time, index) => {
+                        return {
+                            date: time, temp_max_c: meteoData.daily.temperature_2m_max[index] || 0,
+                            temp_min_c: meteoData.daily.temperature_2m_min[index] || 0,
+                            precipitation_mm: meteoData.daily.precipitation_sum[index] || 0,
+                            region: window.currentTargetName
+                        };
+                    });
+                }
+                syncQuickLook();
+            } catch (error) { document.getElementById('info-location').textContent = "Telemetry Link Failed"; }
+        }
+
+        window.searchLocation = async function () {
+            const query = document.getElementById('search-input').value;
+            if (!query) return;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    mainMap.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 12);
+                    resolveLocationData(parseFloat(data[0].lat), parseFloat(data[0].lon));
+                } else { window.sysAlert("No Target Found", "Geocoding returned zero results."); }
+            } catch (e) { }
+        }
+
+        window.updateMapFromInputs = function () {
+            const lat = parseFloat(document.getElementById('lat-input').value);
+            const lon = parseFloat(document.getElementById('lon-input').value);
+            const zoom = parseInt(document.getElementById('zoom-input').value);
+            if (!isNaN(lat) && !isNaN(lon) && !isNaN(zoom)) {
+                mainMap.setView([lat, lon], zoom);
+                resolveLocationData(lat, lon);
+            }
+        }
+
+        window.syncQuickLook = function () {
+            quickLookMap.setView(mainMap.getCenter(), Math.min(mainMap.getZoom() + 2, 18));
+        }
+
+        window.toggleAccordion = function (id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed'); icon.classList.replace('fa-plus', 'fa-minus');
+            } else {
+                content.classList.add('collapsed'); icon.classList.replace('fa-minus', 'fa-plus');
+            }
+        }
+
+        window.openCompareModal = function () {
+            document.getElementById('compareModal').classList.add('active');
+            const center = mainMap.getCenter();
+            const z = Math.min(mainMap.getZoom(), 12);
+            const coordText = `TARGET: ${window.currentTargetName ? window.currentTargetName.toUpperCase() : "UNKNOWN"} | LAT: ${center.lat.toFixed(4)} LON: ${center.lng.toFixed(4)}`;
+
+            document.getElementById('modal-coord-display').textContent = coordText;
+            document.getElementById('print-coord-display').textContent = coordText;
+
+            if (!mapsInitialized) {
+                const mapOptions = { zoomControl: false, attributionControl: false, dragging: true };
+                compareMaps.push(L.map('compare-map-1', mapOptions)); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(compareMaps[0]);
+                compareMaps.push(L.map('compare-map-2', mapOptions)); L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(compareMaps[1]);
+                compareMaps.push(L.map('compare-map-3', mapOptions)); L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(compareMaps[2]);
+                compareMaps.push(L.map('compare-map-4', mapOptions)); L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/${gibsDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`).addTo(compareMaps[3]);
+                compareMaps.push(L.map('compare-map-5', mapOptions)); L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Land_Surface_Temp_Day/default/${gibsDate}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`).addTo(compareMaps[4]);
+                compareMaps.push(L.map('compare-map-6', mapOptions)); L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_DayNightBand_ENCC/default/${gibsDate}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`).addTo(compareMaps[5]);
+                mapsInitialized = true;
+            }
+            setTimeout(() => { compareMaps.forEach(m => { m.invalidateSize(); m.setView(center, z); }); }, 100);
+        }
+
+        window.closeCompareModal = function () { document.getElementById('compareModal').classList.remove('active'); }
+
+        window.openSqlModal = function () { document.getElementById('sqlModal').classList.add('active'); }
+        window.closeSqlModal = function () { document.getElementById('sqlModal').classList.remove('active'); }
+
+        // --- SatQuery API Integration Logic ---
+
+        window.closeSatQueryModal = function () {
+            document.getElementById('satQueryModal').classList.remove('active');
+        }
+
+        window.switchSatTab = function (element, tabId) {
+            document.querySelectorAll('.sat-tab').forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+
+            document.querySelectorAll('.sat-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'tab-charts' && window.activeSatChart) {
+                window.activeSatChart.update();
+            }
+            if (tabId === 'tab-map' && window.satChangeMap) {
+                window.satChangeMap.invalidateSize();
+            }
+        }
+        // Helper to sync inputs with current map center
+        window.syncSatCoordsFromMap = function () {
+            if (window.mainMap) {
+                const center = window.mainMap.getCenter();
+                document.getElementById('sat-custom-lat').value = center.lat.toFixed(4);
+                document.getElementById('sat-custom-lon').value = center.lng.toFixed(4);
+            }
+        };
+
+        window.runSatQuery = async function () {
+            const input = document.getElementById('satQueryInput');
+            const resultsArea = document.getElementById('satResultsArea');
+            const aiText = document.getElementById('ai-response-text');
+            const statusBadge = document.getElementById('ai-status-badge');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            // UI Loading State
+            resultsArea.classList.remove('hidden');
+            aiText.innerHTML = `<span class="ai-typing text-slate-500 font-mono">Querying custom bounding box and fetching STAC archives</span>`;
+            statusBadge.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Processing`;
+            statusBadge.className = "text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 border border-amber-300 font-bold";
+
+            // Read Custom Lat/Lon and create a bounding box (~0.1 degree buffer around point)
+            const lat = parseFloat(document.getElementById('sat-custom-lat').value) || 31.6340;
+            const lon = parseFloat(document.getElementById('sat-custom-lon').value) || 74.8723;
+            const buffer = 0.08;
+            const bbox = [
+                parseFloat((lon - buffer).toFixed(4)),
+                parseFloat((lat - buffer).toFixed(4)),
+                parseFloat((lon + buffer).toFixed(4)),
+                parseFloat((lat + buffer).toFixed(4))
+            ];
+
+            // Read Custom Dates
+            const startDate = document.getElementById('sat-start-date').value || "2024-06-01";
+            const endDate = document.getElementById('sat-end-date').value || "2024-08-25";
+
+            try {
+                const response = await fetch("http://localhost:8000/api/satquery/analyze", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: query,
+                        aoi: { bbox: bbox },
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+
+                if (!response.ok) {
+                    const errJson = await response.json();
+                    throw new Error(errJson.detail || `Server returned status ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 1. Text Narrative & Status
+                aiText.innerText = data.ai_narrative;
+                statusBadge.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Analysis Complete`;
+                statusBadge.className = "text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 border border-emerald-300 font-bold";
+
+                // 2. Map Overlays
+                if (window.liveChangeLayer) {
+                    window.mainMap.removeLayer(window.liveChangeLayer);
+                    if (window.miniChangeLayer) window.satChangeMap.removeLayer(window.miniChangeLayer);
+                }
+
+                if (data.geojson && data.geojson.features.length > 0) {
+                    const style = { color: "#3b82f6", weight: 2, fillColor: "#2563eb", fillOpacity: 0.6 };
+                    window.liveChangeLayer = L.geoJSON(data.geojson, { style }).addTo(window.mainMap);
+                    window.miniChangeLayer = L.geoJSON(data.geojson, { style }).addTo(window.satChangeMap);
+
+                    window.mainMap.setView([lat, lon], 12);
+                    window.satChangeMap.setView([lat, lon], 11);
+                }
+
+                // 3. Stats & Metrics Update
+                document.getElementById('sat-stat-base').innerText = `${data.baseline_water_km2} km²`;
+                document.getElementById('sat-stat-post').innerText = `${data.post_water_km2} km²`;
+                const sign = data.pct_change > 0 ? '+' : '';
+                document.getElementById('sat-stat-change').innerHTML = `${sign}${data.pct_change}% <div class="text-[10px] text-slate-500 font-normal">(${sign}${data.net_change_km2} km²)</div>`;
+                document.getElementById('sat-stat-conf').innerText = data.confidence.toFixed(2);
+
+                // 4. Chart Update
+                window.updateSatChart(data.baseline_water_km2, data.post_water_km2);
+
+                // 5. Detections Table
+                const tbody = document.querySelector('#tab-detections tbody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    if (data.detections && data.detections.length > 0) {
+                        data.detections.forEach(det => {
+                            tbody.innerHTML += `
+                        <tr class="border-b border-slate-200 hover:bg-slate-50">
+                            <td class="p-2 font-mono text-xs">${det.id}</td>
+                            <td>${det.type}</td>
+                            <td class="font-mono text-xs">${det.lat.toFixed(4)}°, ${det.lon.toFixed(4)}°</td>
+                            <td>${det.area_km2.toFixed(3)} km²</td>
+                            <td>${det.confidence.toFixed(2)}</td>
+                        </tr>
+                    `;
+                        });
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs italic">No features detected for this custom range.</td></tr>';
+                    }
+                }
+
+            } catch (err) {
+                statusBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Error`;
+                statusBadge.className = "text-[10px] bg-red-100 text-red-800 px-2 py-0.5 border border-red-300 font-bold";
+                aiText.innerHTML = `<span class="text-red-600 font-bold">Analysis pipeline failed:</span> ${err.message}`;
+            }
+        };
+
+        window.updateSatChart = function (baseVal, postVal) {
+            const canvas = document.getElementById('satQueryChartCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (window.activeSatChart) {
+                window.activeSatChart.destroy();
+            }
+
+            window.activeSatChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Baseline (Jun 2024)', 'Post-Inundation (Aug 2024)'],
+                    datasets: [{
+                        label: 'Water Surface Area (km²)',
+                        data: [baseVal, postVal],
+                        backgroundColor: ['#60a5fa', '#2563eb'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Computed Surface Inundation Delta' }
+                    }
+                }
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+
+</html>
