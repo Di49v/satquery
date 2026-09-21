@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>National Earth Observation Portal | For Government of India</title>
+    <!-- Firebase SDK Compat libraries -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --base-font-size: 13px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: var(--base-font-size);
+            line-height: 1.6;
+            color: #333333;
+            background-color: #e5e5e5; 
+            transition: font-size 0.3s ease;
+        }
+        
+        /* Tiled Monochrome Background Image */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('assets/background.png'); 
+            background-repeat: repeat;
+            background-size: 80px 150px; 
+            opacity: 0.04; 
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        a {
+            color: #000080;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+            color: #cc0000;
+        }
+        
+        .wrapper {
+            width: 95%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Top Government Ribbon */
+        .top-ribbon {
+            background-color: #f1f1f1;
+            border-bottom: 1px solid #dcdcdc;
+            padding: 5px 15px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            color: #333333;
+            flex-wrap: wrap; 
+        }
+        .top-ribbon .left-links {
+            font-weight: bold;
+        }
+        .top-ribbon .left-links a {
+            margin-right: 15px;
+            color: #333;
+            white-space: nowrap; 
+        }
+        .top-ribbon .right-tools {
+            display: flex;
+            align-items: center;
+        }
+        .top-ribbon .right-tools a {
+            margin-right: 15px;
+            border-right: 1px solid #ccc;
+            padding-right: 15px;
+        }
+        .font-resizer {
+            display: flex;
+            align-items: center;
+        }
+        .font-resizer span {
+            padding: 2px 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #000;
+            user-select: none; 
+            border: 1px solid #ccc;
+            margin-left: 2px;
+            background-color: #fff;
+        }
+        .font-resizer span:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Header / Emblem Area */
+        .header {
+            padding: 20px 15px;
+            background-color: #ffffff;
+            border-bottom: 5px solid #FF9933; 
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 20px;
+        }
+        .header::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 5px;
+            background-color: #138808; 
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+        }
+        .header-logo img {
+            height: 80px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .header-text {
+            flex-grow: 1;
+        }
+        .site-title {
+            font-size: 2.2rem; 
+            font-weight: bold;
+            color: #000080;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .site-subtitle {
+            font-size: 1rem; 
+            color: #444444;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Navigation */
+        .navbar {
+            background-color: #000080;
+            padding: 0;
+            margin-top: 10px;
+        }
+        .navbar ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap; 
+        }
+        .navbar li {
+            border-right: 1px solid #333399;
+        }
+        .navbar a {
+            display: block;
+            padding: 10px 20px;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem; 
+        }
+        .navbar a:hover, .navbar a.active {
+            background-color: #FF9933;
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        /* Main Content & Tabs */
+        .main-content {
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        .content-tabs {
+            border-bottom: 2px solid #000080;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-end; /* Keep tabs anchored to bottom border */
+            gap: 5px;
+        }
+        .content-tabs button {
+            background-color: #f1f1f1;
+            border: 1px solid #cccccc;
+            border-bottom: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: -1px; /* To overlay the border slightly */
+        }
+        .content-tabs button:hover {
+            background-color: #e0e0e0;
+        }
+        .content-tabs button.active {
+            background-color: #000080;
+            color: #ffffff;
+            border-color: #000080;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* --- 3D Shiny Spiked Oval Button --- */
+        .spiked-fab {
+            position: relative;
+            width: 140px;
+            height: 44px;
+            margin-left: 15px; /* Spacing from the API tab */
+            margin-bottom: 5px; /* Lifts it slightly off the tab border */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+        .spiked-fab:hover {
+            transform: scale(1.05) translateY(-2px);
+        }
+        .spiked-fab:active {
+            transform: scale(0.95) translateY(2px);
+        }
+        
+        .spiked-shape {
+            position: absolute;
+            width: 44px; /* Base width */
+            height: 44px; /* Base height */
+            /* Scale horizontally to turn the multi-pointed star into an oval */
+            transform: scaleX(2.8); 
+        }
+        
+        .spiked-shadow {
+            top: 5px; /* Dropdown offset for 3D depth */
+            filter: drop-shadow(0px 5px 3px rgba(0,0,0,0.5));
+        }
+        .spiked-shadow .spike-layer {
+            background-color: #7a3200; /* Darker bottom 3D base */
+        }
+        
+        .spiked-top {
+            top: 0;
+        }
+        
+        /* High-gloss shiny effect for the top layer */
+        .spiked-top .spike-layer {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, #FFD700 25%, #FF8C00 50%, #FFD700 75%, rgba(255,255,255,0.9) 100%);
+            border: 1px solid rgba(255,255,255,0.7);
+            box-shadow: inset 0 0 6px rgba(255,255,255,0.9);
+        }
+        
+        .spike-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border-radius: 4px; /* Smooths the sharp corners slightly */
+        }
+        
+        /* 9 squares rotated for a dense 36-pointed star / oval */
+        .spike-1 { transform: rotate(0deg); }
+        .spike-2 { transform: rotate(10deg); }
+        .spike-3 { transform: rotate(20deg); }
+        .spike-4 { transform: rotate(30deg); }
+        .spike-5 { transform: rotate(40deg); }
+        .spike-6 { transform: rotate(50deg); }
+        .spike-7 { transform: rotate(60deg); }
+        .spike-8 { transform: rotate(70deg); }
+        .spike-9 { transform: rotate(80deg); }
+        
+        .spiked-text {
+            position: relative;
+            z-index: 10;
+            color: #000080;
+            font-weight: 900;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            /* White glowing shadow to pop against the shiny background */
+            text-shadow: 0px 1px 2px rgba(255,255,255,0.9), 0px -1px 1px rgba(255,255,255,0.8);
+            pointer-events: none;
+        }
+
+        .section-title {
+            font-size: 1.15rem; 
+            color: #000080;
+            border-bottom: 1px solid #cccccc;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            margin-top: 25px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        .notice-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-left: 5px solid #ffc107;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9rem; 
+            color: #856404;
+        }
+
+        /* Flex Row for Marquee and Dashboard */
+        .top-row-split {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        @media (min-width: 900px) {
+            .top-row-split {
+                flex-direction: row;
+                align-items: stretch;
+            }
+            .marquee-col {
+                flex: 0 0 35%;
+            }
+            .dashboard-col {
+                flex: 0 0 65%;
+            }
+        }
+
+        /* Vertical Marquee Styles */
+        .news-marquee-container {
+            border: 1px solid #cccccc;
+            background-color: #ffffff;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .news-marquee-header {
+            background-color: #000080;
+            color: #ffffff;
+            padding: 10px 15px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+        }
+        .live-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #ff3333;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1.5s infinite;
+        }
+        .news-marquee-content {
+            flex-grow: 1;
+            height: 250px;
+            overflow: hidden;
+            position: relative;
+            background-color: #fbfbfb;
+            padding: 0 15px;
+        }
+        .marquee-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            position: absolute;
+            width: calc(100% - 30px);
+            animation: scroll-vertical 15s linear infinite;
+        }
+        .marquee-list:hover {
+            animation-play-state: paused;
+            cursor: pointer;
+        }
+        .marquee-list li {
+            padding: 15px 0;
+            border-bottom: 1px dashed #cccccc;
+            font-size: 0.9rem;
+            color: #333;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .marquee-list li:last-child {
+            border-bottom: none;
+        }
+        .marquee-date {
+            font-weight: bold;
+            color: #138808; 
+            min-width: 75px;
+            font-size: 0.85rem;
+        }
+        
+        @keyframes scroll-vertical {
+            0% { transform: translateY(250px); }
+            100% { transform: translateY(-100%); }
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        /* Fixed Image Preview Styles */
+        .image-preview {
+            border: 1px solid #cccccc;
+            padding: 0; 
+            background-color: #f9f9f9;
+            text-align: center;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        /* Slideshow Wrapper Styles */
+        .slide-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .slide-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 128, 0.7);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            z-index: 10;
+            transition: background 0.3s;
+        }
+        .slide-btn:hover {
+            background-color: #FF9933;
+        }
+        .prev-btn { left: 0; }
+        .next-btn { right: 0; }
+        
+        .image-preview img {
+            width: 100%;
+            max-width: 100%;
+            max-height: none; 
+            object-fit: contain;
+            border: none; 
+            margin: 0;
+            display: block;
+            cursor: pointer;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .image-preview img:hover {
+            opacity: 0.85;
+        }
+        .image-caption {
+            font-size: 0.85rem; 
+            color: #555555;
+            margin-top: 15px;
+            padding: 0 15px; 
+            font-style: italic;
+        }
+        .image-actions {
+            margin-top: 10px;
+            padding-bottom: 15px; 
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .image-actions a {
+            display: inline-block;
+            margin: 0 10px;
+            cursor: pointer;
+            color: #000080;
+            text-decoration: underline;
+        }
+
+        /* Portals Section */
+        .portal-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        @media (min-width: 768px) {
+            .portal-container {
+                flex-direction: row;
+            }
+        }
+        .portal-box {
+            flex: 1;
+            border: 1px solid #b3b3b3;
+            background-color: #fdfdfd;
+            padding: 20px;
+            border-top: 4px solid #000080;
+        }
+        .portal-box h3 {
+            font-size: 1.1rem; 
+            color: #000000;
+            margin-bottom: 10px;
+            border-bottom: 1px dotted #999999;
+            padding-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .portal-box ul {
+            list-style-type: square;
+            margin-left: 20px;
+            margin-bottom: 20px;
+            font-size: 0.95rem; 
+            color: #444;
+        }
+        .portal-box li {
+            margin-bottom: 6px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #000080;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem; 
+            border: 1px solid #000033;
+            text-align: center;
+            cursor: pointer;
+            width: 100%; 
+            box-sizing: border-box;
+            transition: background 0.2s;
+        }
+        @media (min-width: 768px) {
+            .btn {
+                width: auto; 
+            }
+        }
+        .btn:hover {
+            background-color: #FF9933;
+            text-decoration: none;
+            color: #ffffff;
+        }
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333333;
+            border: 1px solid #999999;
+        }
+        .btn-secondary:hover {
+            background-color: #cccccc;
+            color: #000;
+        }
+
+        /* Tables */
+        .doc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+        .doc-table th, .doc-table td {
+            border: 1px solid #cccccc;
+            padding: 12px;
+            text-align: left;
+            font-size: 0.95rem; 
+            vertical-align: top;
+        }
+        .doc-table th {
+            background-color: #e6e6e6;
+            color: #000080;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .doc-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #1a1a1a;
+            color: #cccccc;
+            border-top: 4px solid #138808;
+            padding: 30px 20px 20px;
+            font-size: 0.85rem; 
+        }
+        .footer-content {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 20px;
+        }
+        .footer-section {
+            flex: 1;
+            min-width: 250px;
+        }
+        .footer-section h4 {
+            color: #ffffff;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+        .footer a {
+            color: #999999;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .footer a:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+        .footer-bottom {
+            text-align: center;
+        }
+        
+        /* Visitor Counter */
+        .visitor-counter {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .counter-digit {
+            background-color: #000;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 4px 6px;
+            border: 1px solid #444;
+            border-radius: 2px;
+            font-size: 1.1rem;
+        }
+        .footer-credits {
+            margin-top: 15px;
+            color: #777;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            overflow: auto;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            margin: 2% auto; 
+            padding: 0;
+            border: 1px solid #666;
+            width: 95%; 
+            max-width: 1000px; 
+            min-height: 90%; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #modal-img-enlarge .modal-content {
+            min-height: auto;
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            align-items: center;
+            justify-content: center;
+            margin: 5vh auto;
+        }
+
+        /* SIH Mentor specific modal styling */
+        #modal-sih-access .modal-content {
+            min-height: auto;
+            max-width: 500px;
+            margin: 10% auto;
+        }
+        
+        #modal-sih-access .modal-header {
+            background-color: #cc0000;
+        }
+        
+        .form-input {
+            width: 100%; 
+            padding: 10px; 
+            margin-bottom: 12px; 
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .modal-header {
+            background-color: #000080;
+            color: white;
+            padding: 12px 15px;
+            font-weight: bold;
+            font-size: 1.2rem; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-close {
+            color: #ffffff;
+            font-size: 2rem; 
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .modal-close:hover {
+            color: #FF9933;
+        }
+        .modal-body {
+            padding: 25px;
+            font-size: 0.95rem; 
+            line-height: 1.6;
+            color: #333;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .modal-body h4 {
+            color: #000080;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            font-size: 1.1rem; 
+            text-transform: uppercase;
+        }
+        .modal-body pre, .modal-body code {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: monospace;
+            display: block;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+        }
+
+        @media (max-width: 768px) {
+            .top-row-split {
+                flex-direction: column;
+            }
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+            .header-logo img {
+                height: 60px;
+            }
+            .site-title { font-size: 1.5rem; }
+            .navbar ul { flex-direction: column; }
+            .navbar li { border-right: none; border-bottom: 1px solid #333399; }
+            .content-tabs { flex-direction: column; align-items: stretch; }
+            .content-tabs button { border: 1px solid #ccc; margin-bottom: 2px; }
+            .spiked-fab { margin: 10px auto; width: 180px; } /* Center button on mobile */
+            .footer-content { flex-direction: column; text-align: center; }
+            
+            /* Responsive Table */
+            .doc-table th { display: none; }
+            .doc-table td { 
+                display: block; 
+                width: 100%; 
+                box-sizing: border-box; 
+            }
+            .doc-table tr { 
+                display: block; 
+                margin-bottom: 15px; 
+                border: 1px solid #ccc;
+            }
+            .doc-table td:before {
+                content: attr(data-label);
+                font-weight: bold;
+                display: block;
+                margin-bottom: 5px;
+                color: #000080;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <!-- Top Ribbon -->
+    <div class="top-ribbon">
+        <div class="left-links">
+            <a href="https://www.india.gov.in/" target="_blank">FOR GOVERNMENT OF INDIA</a> | 
+            <a href="https://moes.gov.in/" target="_blank">MINISTRY OF EARTH SCIENCES</a>| 
+            <a style="color: #333399; text-transform: uppercase;" target="_blank">BY STUDENTS OF INDIA</a>
+        </div>
+        <div class="right-tools">
+            <a href="#main-content">Skip to Main Content</a>
+            <div class="font-resizer">
+                <span>Text Size:</span>
+                <span onclick="changeFontSize(-1)" title="Decrease Font Size" aria-label="Decrease Font Size">A-</span>
+                <span onclick="changeFontSize(0)" title="Reset Font Size" aria-label="Reset Font Size">A</span>
+                <span onclick="changeFontSize(1)" title="Increase Font Size" aria-label="Increase Font Size">A+</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT7VNqsQZrJ0wkrI0Fvwc8E_kpH3OOSo1OflDleFr4ZkQ&s=10" alt="Ministry of Science and Technology Logo">
+        </div>
+        <div class="header-text">
+            <div class="site-title">National Earth Observation Portal</div>
+            <div class="site-subtitle">Centralized Remote Sensing & Spatial Data Infrastructure</div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="navbar">
+        <ul>
+            <li><a href="https://moes.gov.in/" target="_blank">Home</a></li>
+            <li><a href="https://moes.gov.in/about-us/ministry" target="_blank">About Ministry</a></li>
+            <li><a href="https://moes.gov.in/policies" target="_blank">Policies</a></li>
+            <li><a href="https://moes.gov.in/rti" target="_blank">RTI</a></li>
+            <li><a href="https://moes.gov.in/tenders" target="_blank">Tenders</a></li>
+            <li><a href="https://moes.gov.in/contact-us" target="_blank">Contact Us</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content" id="main-content">
+        
+        <div class="notice-box">
+            <strong>ATTENTION:</strong> The Data Query Interface (DQI) and Live Telemetry feeds are restricted to authorized nodes only. All access is logged and audited as per national security guidelines.
+        </div>
+
+        <!-- Tabbed Navigation -->
+        <div class="content-tabs">
+            <button class="tab-btn active" onclick="openTab(event, 'tab-overview')">Portal Overview</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-api-docs')">API & Documentation</button>
+
+            <!-- 3D Shiny Spiked Oval Button now triggers SIH Access Modal -->
+            <a href="javascript:void(0);" onclick="openModal('modal-sih-access')" class="spiked-fab" title="Access Webportals">
+                <!-- Bottom Drop-shadow Layer (3D Extrusion) -->
+                <div class="spiked-shape spiked-shadow">
+                    <div class="spike-layer spike-1"></div>
+                    <div class="spike-layer spike-2"></div>
+                    <div class="spike-layer spike-3"></div>
+                    <div class="spike-layer spike-4"></div>
+                    <div class="spike-layer spike-5"></div>
+                    <div class="spike-layer spike-6"></div>
+                    <div class="spike-layer spike-7"></div>
+                    <div class="spike-layer spike-8"></div>
+                    <div class="spike-layer spike-9"></div>
+                </div>
+                <!-- Top Shiny Gradient Layer -->
+                <div class="spiked-shape spiked-top">
+                    <div class="spike-layer spike-1"></div>
+                    <div class="spike-layer spike-2"></div>
+                    <div class="spike-layer spike-3"></div>
+                    <div class="spike-layer spike-4"></div>
+                    <div class="spike-layer spike-5"></div>
+                    <div class="spike-layer spike-6"></div>
+                    <div class="spike-layer spike-7"></div>
+                    <div class="spike-layer spike-8"></div>
+                    <div class="spike-layer spike-9"></div>
+                </div>
+                <!-- Overlay Text -->
+                <span class="spiked-text">WEB PORTAL</span>
+            </a>
+        </div>
+
+        <!-- TAB 1: Portal Overview -->
+        <div id="tab-overview" class="tab-panel active">
+            
+            <!-- Side by side Marquee and Dashboard Preview -->
+            <div class="top-row-split">
+                
+                <!-- Left Column: Marquee -->
+                <div class="marquee-col">
+                    <div class="news-marquee-container">
+                        <div class="news-marquee-header">
+                            <span class="live-dot"></span> UPCOMING UPDATES
+                        </div>
+                        <div class="news-marquee-content">
+                            <ul class="marquee-list">
+                                <li>
+                                    <span class="marquee-date">OCT 2026</span>
+                                    <span>Integration of Sentinel-2 dataset into the main dashboard.</span>
+                                </li>
+                                <li>
+                                    <span class="marquee-date">NOV 2026</span>
+                                    <span>Deployment of the Vision multimodal transformer pipeline for advanced spatial predictions.</span>
+                                </li>
+                                <li>
+                                    <span class="marquee-date">DEC 2026</span>
+                                    <span>New automated PDF/Excel report generation added to the Data Query Interface (DQI).</span>
+                                </li>
+                                <li>
+                                    <span class="marquee-date">JAN 2027</span>
+                                    <span>Enhanced role-based access control (RBAC) rollout for Tier-1 Institutional Research users.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Dashboard Preview (Slideshow) -->
+                <div class="dashboard-col">
+                    <div class="image-preview">
+                        <div class="slide-wrapper">
+                            <button class="slide-btn prev-btn" onclick="changeSlide(-1); event.stopPropagation();" title="Previous Image">&#10094;</button>
+                            <img id="dashboard-slideshow" src="assets/dashboard3.png" alt="National Remote Sensing Portal Interface Preview" onclick="openModal('modal-img-enlarge')" title="Click to enlarge" onerror="this.src='https://placehold.co/800x400/eeeeee/999999?text=Image+Not+Found'">
+                            <button class="slide-btn next-btn" onclick="changeSlide(1); event.stopPropagation();" title="Next Image">&#10095;</button>
+                        </div>
+                        <div class="image-caption">Fig 1: Interface previews featuring Active Overlays, Target Resolution, and Data Inspector.</div>
+                        <div class="image-actions">
+                            <a onclick="openModal('modal-img-enlarge')">[ Enlarge Preview ]</a>
+                            <a href="javascript:void(0);" onclick="openModal('modal-sih-access')">[ Open Webportal Node ]</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- End Split Row -->
+
+            <h2 class="section-title">Project Overview & Assessment</h2>
+            <p style="margin-bottom: 15px; text-align: justify;">
+                The National Earth Observation Portal is a secure, multi-tier spatial data infrastructure project developed to facilitate advanced geographical analysis, environmental monitoring, and national planning. It provides varying levels of access to high-resolution optical imagery, live multi-spectral telemetry (including NASA GIBS overlays for NDVI and Thermal), and advanced SQL-based querying capabilities. 
+            </p>
+            <p style="margin-bottom: 25px; text-align: justify;">
+                Authorized personnel and institutional researchers can assess environmental trends, execute dynamic data plotting, and perform multispectral comparative analyses directly within the browser environment.
+            </p>
+
+            <h2 class="section-title" id="access-portals">System Access Gateways</h2>
+            
+            <div class="portal-container">
+                <!-- Government Web Portal -->
+                <div class="portal-box">
+                    <h3>Government Administrative Portal</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 10px;">Restricted to Central/State departments and Defense personnel.</p>
+                    <ul>
+                        <li>Advanced SQL Database Console (DQI)</li>
+                        <li>Live Confidential Telemetry Feeds</li>
+                        <li>Dynamic Data Plotting & Analysis</li>
+                        <li>Multispectral Matrix Comparison</li>
+                        <li>Secure FITS Array Downloads</li>
+                    </ul>
+                    <a href="javascript:void(0);" class="btn" onclick="openModal('modal-sih-access')">Gov SSO Login >></a>
+                </div>
+
+                <!-- Research Institution Portal -->
+                <div class="portal-box">
+                    <h3>Institutional Research Portal</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 10px;">For accredited academic and environmental research institutions.</p>
+                    <ul>
+                        <li>OSM Vector & Optical Base Maps</li>
+                        <li>Standard Regional Telemetry Plots</li>
+                        <li>Export Metadata (XML / JSON)</li>
+                        <li>Historical Archive Access</li>
+                        <li>View-Only Multispectral Tools</li>
+                    </ul>
+                    <a href="javascript:void(0);" class="btn btn-secondary" onclick="openModal('modal-sih-access')">Academic Login >></a>
+                </div>
+            </div>
+
+        </div> <!-- End Tab 1 -->
+
+        <!-- TAB 2: API & Documentation -->
+        <div id="tab-api-docs" class="tab-panel">
+            
+            <h2 class="section-title">Developer Resources & Documentation</h2>
+            <p style="margin-bottom: 20px; text-align: justify;">
+                To integrate our telemetry and spatial models into departmental applications, review the official documentation below. Access to the AI REST API requires an active authentication token provisioned by the central nodal agency.
+            </p>
+
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Resource Type</th>
+                        <th style="width: 55%;">Description</th>
+                        <th style="width: 20%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td data-label="Resource Type"><strong>AI Integration API</strong></td>
+                        <td data-label="Description">Comprehensive REST API documentation for querying external AI models to analyze spatial parameters and predict telemetry trends. Includes endpoint definitions and payload structures.</td>
+                        <td data-label="Action"><a href="javascript:void(0);" onclick="openModal('modal-api')" style="font-weight: bold;">[ View Endpoints ]</a></td>
+                    </tr>
+                    <tr>
+                        <td data-label="Resource Type"><strong>Webportal Architecture</strong></td>
+                        <td data-label="Description">Detailed architecture proposal and syntactical guidelines for utilizing the Data Query Interface (DQI) and Webportal mapping tools. Details Tier-1 vs Tier-2 operational segregation.</td>
+                        <td data-label="Action"><a href="javascript:void(0);" onclick="openModal('modal-webportal')" style="font-weight: bold;">[ View Architecture ]</a></td>
+                    </tr>
+                    <tr>
+                        <td data-label="Resource Type"><strong>SQL DQI Specification</strong></td>
+                        <td data-label="Description">Formal project proposal outlining the data structures, schema, and implementation strategy for the telemetry database, allowing secure terminal-like execution.</td>
+                        <td data-label="Action"><a href="javascript:void(0);" onclick="openModal('modal-sql-proposal')" style="font-weight: bold;">[ View SQL Specs ]</a></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+        </div> <!-- End Tab 2 -->
+
+    </div>
+
+    <!-- Enhanced Footer -->
+    <div class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Important Links</h4>
+                <a href="https://www.india.gov.in/" target="_blank">National Portal of India</a>
+                <a href="https://www.digitalindia.gov.in/" target="_blank">Digital India Initiative</a>
+                <a href="https://moes.gov.in/" target="_blank" style="text-decoration: underline;">Ministry of Earth Sciences</a>
+                <a href="https://data.gov.in/" target="_blank">Data.gov.in</a>
+            </div>
+            <div class="footer-section">
+                <h4>Website Information</h4>
+                <a href="https://moes.gov.in/policies" target="_blank">Website Policies</a>
+                <a href="https://moes.gov.in/terms" target="_blank">Terms and Conditions</a>
+                <a href="https://moes.gov.in/help" target="_blank">Help & FAQs</a>
+                <a href="https://moes.gov.in/wim" target="_blank">Web Information Manager</a>
+            </div>
+            <div class="footer-section" style="text-align: right;">
+                <h4>Visitor Statistics</h4>
+                <div class="visitor-counter">
+                    <span class="counter-digit">0</span>
+                    <span class="counter-digit">1</span>
+                    <span class="counter-digit">4</span>
+                    <span class="counter-digit">5</span>
+                    <span class="counter-digit">9</span>
+                    <span class="counter-digit">2</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p><strong style="color: #FF9933; text-transform: uppercase;"> &copy; SIH 2026 project by Antariksh Intelligence</strong></p>
+            <p style="margin-top: 10px;"> For Government of India | Ministry of Earth Sciences.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Image Enlarge Modal -->
+<div id="modal-img-enlarge" class="modal-overlay" onclick="closeModal('modal-img-enlarge')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div style="text-align: right; width: 100%; padding: 0 10px 10px 0;">
+            <span class="modal-close" onclick="closeModal('modal-img-enlarge')" aria-label="Close Modal" style="color: white; text-shadow: 0 0 5px rgba(0,0,0,0.8);">&times;</span>
+        </div>
+        <img id="enlarged-img" src="assets/dashboard2.png" alt="Enlarged Dashboard Preview" style="max-width: 100%; max-height: 85vh; border: 3px solid #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.5);" onerror="this.src='https://placehold.co/1200x800/eeeeee/999999?text=Image+Not+Found'">
+    </div>
+</div>
+
+<!-- SIH Mentor Access Form Modal -->
+<div id="modal-sih-access" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>RESTRICTED ACCESS</span>
+            <span class="modal-close" onclick="closeModal('modal-sih-access')" aria-label="Close Modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p style="color: #cc0000; font-weight: bold; font-size: 1.1rem; margin-bottom: 15px; text-align: center;">ACCESS IS LIMITED AND ONLY OPEN TO SIH MENTORS.</p>
+            <p style="margin-bottom: 20px; text-align: justify;">Kindly submit your name, contact, and email below to request access. Alternatively, contact <strong>Jashanpreet Singh (astrodingra@gmail.com)</strong> directly for immediate authorization to the portal.</p>
+            
+            <form id="accessRequestForm">
+                <input type="text" id="mentorName" class="form-input" placeholder="Full Name" required>
+                <input type="email" id="mentorEmail" class="form-input" placeholder="Email Address" required>
+                <input type="text" id="mentorContact" class="form-input" placeholder="Contact Number" required>
+                <button type="submit" class="btn" style="width: 100%; background-color: #cc0000; margin-top: 10px;">Submit Access Request</button>
+            </form>
+
+            <div id="formSuccessMessage" style="display: none; margin-top: 20px; font-weight: bold; color: #138808; text-align: center; padding: 15px; background-color: #e8f5e9; border: 1px solid #138808; border-radius: 4px;">
+                Request submitted successfully! We will verify your credentials and contact you shortly.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Text Modals -->
+<div id="modal-api" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>REST API Documentation (v1.2) - National Earth Observation System</span>
+            <span class="modal-close" onclick="closeModal('modal-api')" aria-label="Close Modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>This document outlines the REST API endpoints available for integrating the National Earth Observation Portal's AI and data retrieval capabilities into authorized governmental applications.</p>
+            
+            <h4>1. Authentication & Access</h4>
+            <p>Access to all endpoints is strictly authenticated. Requests must include a standard Authorization header with a Bearer Token provided by the Centralized Government SSO identity provider.</p>
+            <pre>Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
+            <p><strong>Rate Limits:</strong> Automated queries are rate-limited to 50 requests per minute per authenticated nodal agency. Exceeding this limit will trigger automated IP suspension and logging in the central security audit.</p>
+
+            <h4>2. Core Endpoints</h4>
+
+            <h5>2.1 Spatial Parameter Prediction (AI Model)</h5>
+            <p>Predicts short-term environmental and telemetry trends using historical multispectral data processed through our internal machine learning models.</p>
+            <ul>
+                <li><strong>Endpoint:</strong> <code>POST /api/v1/spatial/predict</code></li>
+                <li><strong>Content-Type:</strong> <code>application/json</code></li>
+            </ul>
+            <p><strong>Request Payload:</strong></p>
+<pre>{
+  "coordinates": {
+    "lat": 31.6340,
+    "lon": 74.8723
+  },
+  "model": "NDVI_TREND",
+  "forecast_days": 7
+}</pre>
+            <p><strong>Success Response (200 OK):</strong></p>
+<pre>{
+  "status": "success",
+  "data": {
+    "confidence_matrix": 0.89,
+    "predictions": [
+      {"date": "2026-08-28", "predicted_value": 0.45},
+      {"date": "2026-08-29", "predicted_value": 0.46}
+    ],
+    "model_version": "v2.4-stable"
+  }
+}</pre>
+
+            <h5>2.2 Telemetry Crossmatch Retrieval</h5>
+            <p>Retrieves synchronous comparative data across different optical and thermal sensors for a specified region or coordinate set.</p>
+            <ul>
+                <li><strong>Endpoint:</strong> <code>GET /api/v1/analysis/crossmatch</code></li>
+            </ul>
+            <p><strong>Example Request:</strong></p>
+            <pre>GET /api/v1/analysis/crossmatch?region=Amritsar&sensors=thermal,ndvi</pre>
+        </div>
+    </div>
+</div>
+
+<div id="modal-webportal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>Webportal Architecture & Component Guidelines</span>
+            <span class="modal-close" onclick="closeModal('modal-webportal')" aria-label="Close Modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>This document details the frontend architecture, mapping engines, and operational segregation of the Earth Observation Portal.</p>
+
+            <h4>1. Dual-Portal System Architecture</h4>
+            <p>To comply with data security and segregation mandates, the system operates two distinct environments utilizing a shared backend infrastructure but completely isolated frontend feature flags and routing.</p>
+            <ul>
+                <li><strong>Institutional Research Portal (Tier-1):</strong> Designed for academia. Provides read-only access to basic OSM Vector mapping, historical data arrays, and limited metadata export. Live high-resolution telemetry is disabled.</li>
+                <li><strong>Government Administrative Portal (Tier-2):</strong> Requires high-level clearance. Features live NASA GIBS telemetry overlays (Night Lights, Thermal LST), confidential metric computation, dynamic plotting, and full access to the Data Query Interface (DQI).</li>
+            </ul>
+
+            <h4>2. Mapping Engine (Leaflet) Integration</h4>
+            <p>The visual component relies heavily on customized Leaflet.js instances. Standard controls are overridden to match the strict, minimalist UI requirements.</p>
+            <ul>
+                <li><strong>Base Maps:</strong> OpenStreetMap (OSM) and Carto Light for infrastructure reference.</li>
+                <li><strong>Live Telemetry (NASA GIBS):</strong> Layers such as MODIS NDVI, MODIS Land Surface Temp, and VIIRS Day/Night Band are integrated using WMTS endpoints.</li>
+            </ul>
+
+            <h4>3. Dynamic Analysis & Plotting</h4>
+            <p>Integrated data plotting allows real-time visualization of either map-selected environmental data or SQL DQI result sets. It utilizes Chart.js for rendering responsive line, bar, and scatter plots.</p>
+        </div>
+    </div>
+</div>
+
+<div id="modal-sql-proposal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>SQL Database Implementation Proposal</span>
+            <span class="modal-close" onclick="closeModal('modal-sql-proposal')" aria-label="Close Modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="font-size: 1.3rem; margin-bottom: 5px;">PROPOSAL FOR SPATIAL DATA QUERY INTERFACE (DQI)</h3>
+                <p>Document Ref: GOV-RS-SQL-0926 | Status: APPROVED</p>
+            </div>
+
+            <h4>1. Executive Summary</h4>
+            <p>This proposal outlines the structure and usage syntax for the Data Query Interface (DQI) embedded within the Government Administrative Portal. The DQI is designed to provide analysts with terminal-like SQL access to live and historical telemetry records without requiring direct database management access.</p>
+
+            <h4>2. Supported Query Syntax</h4>
+            <p>The custom SQL parser implemented in the portal supports the following subset of standard SQL operations tailored for security and performance:</p>
+            <ul>
+                <li><strong>SELECT statements:</strong> Specifying columns or using wildcard (*).</li>
+                <li><strong>FROM clause:</strong> Targeting telemetry or bookmarks tables.</li>
+                <li><strong>WHERE clauses:</strong> Supporting standard comparison operators.</li>
+            </ul>
+
+            <p><strong>Example Approved Queries:</strong></p>
+            <pre>SELECT * FROM telemetry WHERE region = 'Amritsar';
+SELECT id, sensor, elevation, temp FROM telemetry WHERE status = 'ACTIVE';
+SELECT region, timestamp, temp FROM telemetry WHERE temp > 35;</pre>
+
+            <h4>3. Data Export & Integration</h4>
+            <p>The DQI module integrates directly with the Dynamic Analysis engine. Results from any valid SQL query can be instantly piped into the charting tool for visualization, or exported locally as CSV, JSON, HTML, or secure PDF reports for departmental filing.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // FIREBASE INITIALIZATION & LOGIC
+    // ==========================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyCut-Qi7scoHnjHyE8UBuN53PHWnMMKqSE",
+        authDomain: "sitee-f6a0c.firebaseapp.com",
+        databaseURL: "https://sitee-f6a0c-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "sitee-f6a0c",
+        storageBucket: "sitee-f6a0c.firebasestorage.app",
+        messagingSenderId: "284183052545",
+        appId: "1:284183052545:web:ef85ecc7be844cede8db00",
+        measurementId: "G-HZHS31QH07"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // Handle Access Form Submission
+    document.getElementById('accessRequestForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('mentorName').value;
+        const email = document.getElementById('mentorEmail').value;
+        const contact = document.getElementById('mentorContact').value;
+        const submitBtn = this.querySelector('button[type="submit"]');
+
+        submitBtn.innerText = "Submitting...";
+        submitBtn.disabled = true;
+
+        // Push data to Realtime Database
+        database.ref('sihMentorAccessRequests').push({
+            name: name,
+            email: email,
+            contact: contact,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            document.getElementById('accessRequestForm').style.display = 'none';
+            document.getElementById('formSuccessMessage').style.display = 'block';
+        }).catch((error) => {
+            console.error("Error submitting to Firebase:", error);
+            alert("Submission failed. Please check console for details or contact the administrator.");
+            submitBtn.innerText = "Submit Access Request";
+            submitBtn.disabled = false;
+        });
+    });
+
+    // ==========================================
+    // UI COMPONENT LOGIC
+    // ==========================================
+
+    // Variables for Font Resizer
+    const minFontSize = 11;
+    const maxFontSize = 18;
+    const defaultFontSize = 13;
+    let currentFontSize = defaultFontSize;
+
+    // Function to handle font size changes
+    function changeFontSize(step) {
+        if (step === 0) {
+            currentFontSize = defaultFontSize;
+        } else {
+            const newSize = currentFontSize + (step * 2);
+            if (newSize >= minFontSize && newSize <= maxFontSize) {
+                currentFontSize = newSize;
+            }
+        }
+        document.documentElement.style.setProperty('--base-font-size', currentFontSize + 'px');
+    }
+    
+    // Function for handling Tab switches
+    function openTab(evt, tabId) {
+        var i, tabPanels, tabBtns;
+        
+        // Hide all tab content
+        tabPanels = document.getElementsByClassName("tab-panel");
+        for (i = 0; i < tabPanels.length; i++) {
+            tabPanels[i].classList.remove("active");
+        }
+        
+        // Remove active class from all buttons
+        tabBtns = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < tabBtns.length; i++) {
+            tabBtns[i].classList.remove("active");
+        }
+        
+        // Show current tab and add active class to button
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    // Modal functionality
+    function openModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+
+        // Reset the form if the access modal is opened again
+        if(modalId === 'modal-sih-access') {
+            document.getElementById('accessRequestForm').style.display = 'block';
+            document.getElementById('accessRequestForm').reset();
+            document.getElementById('formSuccessMessage').style.display = 'none';
+            const btn = document.querySelector('#accessRequestForm button');
+            btn.innerText = "Submit Access Request";
+            btn.disabled = false;
+        }
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal-overlay')) {
+            event.target.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape") {
+            const modals = document.querySelectorAll('.modal-overlay');
+            modals.forEach(modal => {
+                if (modal.style.display === 'flex') {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            });
+        }
+    });
+
+    // ==========================================
+    // VISITOR COUNTER LOGIC
+    // ==========================================
+    
+    function renderVisitorCount(count) {
+        const counterContainer = document.querySelector('.visitor-counter');
+        if (!counterContainer) return;
+
+        // Clear the static HTML digits
+        counterContainer.innerHTML = '';
+
+        // Pad the number to ensure it has at least 6 digits (e.g., "014593")
+        const countStr = count.toString().padStart(6, '0');
+
+        // Create and append a span for each digit
+        for (let digit of countStr) {
+            const span = document.createElement('span');
+            span.className = 'counter-digit';
+            span.textContent = digit;
+            counterContainer.appendChild(span);
+        }
+    }
+
+    async function initializeCounter() {
+        try {
+            // --- LOCAL DEMONSTRATION MODE ---
+            // Simulates a database using the browser's local storage for testing
+            let simulatedCount = localStorage.getItem('neo_portal_visitors');
+            simulatedCount = simulatedCount ? parseInt(simulatedCount) + 1 : 14592; 
+            localStorage.setItem('neo_portal_visitors', simulatedCount);
+            
+            renderVisitorCount(simulatedCount);
+            // ---------------------------------
+
+        } catch (error) {
+            console.error('Failed to load visitor count:', error);
+        }
+    }
+
+    // Run the counter replacement once the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', initializeCounter);
+
+    // ==========================================
+    // IMAGE SLIDESHOW LOGIC
+    // ==========================================
+    
+    // Updated slideshow to strictly use dashboard.png and dashboard2.png
+    const slideshowImages = ['assets/dashboard3.png','assets/dashboard2.png', 'assets/dashboard.png'];
+    let currentSlideIndex = 0;
+    
+    function changeSlide(direction) {
+        currentSlideIndex += direction;
+        
+        // Loop back if out of bounds
+        if (currentSlideIndex >= slideshowImages.length) {
+            currentSlideIndex = 0;
+        } else if (currentSlideIndex < 0) {
+            currentSlideIndex = slideshowImages.length - 1;
+        }
+        
+        updateSlideImages();
+    }
+    
+    function updateSlideImages() {
+        const mainImg = document.getElementById('dashboard-slideshow');
+        const modalImg = document.getElementById('enlarged-img');
+        
+        if (mainImg) {
+            mainImg.src = slideshowImages[currentSlideIndex];
+        }
+        if (modalImg) {
+            modalImg.src = slideshowImages[currentSlideIndex];
+        }
+    }
+    
+    // Auto-slide every 4 seconds to make the automatic movement noticeable
+    setInterval(() => {
+        changeSlide(1);
+    }, 4000);
+</script>
+
+</body>
+</html>
